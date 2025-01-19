@@ -5,7 +5,10 @@ project(MyJsonServer LANGUAGES CXX)
 add_executable(MyJsonServer main.cpp cserver.h cserver.cpp
     defines.h
     csession.h csession.cpp
-    msgnode.h msgnode.cpp)
+    msgnode.h msgnode.cpp
+    Singleton.h
+    logicsystem.h logicsystem.cpp
+    logicnode.h logicnode.cpp)
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 
