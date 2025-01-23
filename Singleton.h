@@ -25,3 +25,7 @@ protected: //能被子类继承
 
     static std::shared_ptr<T> m_Instance;
 };
+
+//这里相当于在cpp文件中生成了一个Instance实例。没有的话，继承的子类可能会在GetInstance时会出问题
+template<typename T>
+std::shared_ptr<T> Singleton<T>::m_Instance = nullptr;

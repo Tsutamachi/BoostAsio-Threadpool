@@ -1,23 +1,32 @@
+//优雅退出：Asio版本
 #include "cserver.h"
 #include "defines.h"
+#include "servicepool.h"
 #include <iostream>
 
 int main()
 {
     try {
-        boost::asio::io_context ioc;
+        auto pool = ServicePool::GetInstance();
+        boost::asio::io_context ioc; //用于监测退出信号
         boost::asio::signal_set
             sigquit(ioc,
                     SIGINT,
                     SIGTERM); //第一个信号是Ctrl+c的强制退出，第二个是右上角的退出按钮对应的信号
-        sigquit.async_wait([&ioc](auto, auto) { ioc.stop(); }); //两个auto对应两个信号
+        sigquit.async_wait([&ioc, pool](auto, auto) { //两个auto对应两个信号
+            ioc.stop();
+            pool->Stop();
+        });
+
         CServer server(ioc, PORT);
         ioc.run();
+
     } catch (std::exception& e) {
         std::cerr << "Server init false :" << e.what() << std::endl;
     }
 }
 
+//优雅退出：通用版本
 // #include "Singleton.h"
 // #include "cserver.h"
 // #include "logicsystem.h"

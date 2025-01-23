@@ -1,5 +1,6 @@
 #include "cserver.h"
 #include "csession.h"
+#include "servicepool.h"
 #include <iostream>
 
 CServer::CServer(boost::asio::io_context &ioc, short port)
@@ -18,7 +19,8 @@ void CServer::ClearSession(std::string uuid)
 
 void CServer::StartAccept()
 {
-    std::shared_ptr<CSession> new_session = std::make_shared<CSession>(m_ioc, this);
+    auto &iocontext = ServicePool::GetInstance()->GetService();
+    std::shared_ptr<CSession> new_session = std::make_shared<CSession>(iocontext, this);
     m_acceptor
         .async_accept(new_session->GetSocket(),
                       std::bind(&CServer::HandleAccept, this, new_session, std::placeholders::_1));

@@ -8,7 +8,8 @@ add_executable(MyJsonServer main.cpp cserver.h cserver.cpp
     msgnode.h msgnode.cpp
     Singleton.h
     logicsystem.h logicsystem.cpp
-    logicnode.h logicnode.cpp)
+    logicnode.h logicnode.cpp
+    servicepool.h servicepool.cpp)
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 
