@@ -1,10 +1,18 @@
 #pragma once
 #include "defines.h"
+#include <algorithm>
+#include <string.h>
 
 class MsgNode
 {
 public:
     MsgNode(short max_len);
+
+    void Clear()
+    {
+        memset(m_Data, 0, m_TotalLen);
+        m_CurLen = 0;
+    }
 
     char* m_Data;
     short m_CurLen;

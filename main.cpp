@@ -7,15 +7,15 @@
 int main()
 {
     try {
-        auto pool = ServicePool::GetInstance();
+        auto& pool = ServicePool::GetInstance();
         boost::asio::io_context ioc; //用于监测退出信号
         boost::asio::signal_set
             sigquit(ioc,
                     SIGINT,
                     SIGTERM); //第一个信号是Ctrl+c的强制退出，第二个是右上角的退出按钮对应的信号
-        sigquit.async_wait([&ioc, pool](auto, auto) { //两个auto对应两个信号
+        sigquit.async_wait([&ioc, &pool](auto, auto) { //两个auto对应两个信号
             ioc.stop();
-            pool->Stop();
+            pool.Stop();
         });
 
         CServer server(ioc, PORT);

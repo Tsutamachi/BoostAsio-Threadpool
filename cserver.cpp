@@ -19,7 +19,7 @@ void CServer::ClearSession(std::string uuid)
 
 void CServer::StartAccept()
 {
-    auto &iocontext = ServicePool::GetInstance()->GetService();
+    auto &iocontext = ServicePool::GetInstance().GetService();
     std::shared_ptr<CSession> new_session = std::make_shared<CSession>(iocontext, this);
     m_acceptor
         .async_accept(new_session->GetSocket(),
@@ -34,6 +34,7 @@ void CServer::HandleAccept(std::shared_ptr<CSession> &new_session,
         return;
     }
     new_session->Start();
+    std::lock_guard<std::mutex> lock(m_Mutex);
     m_sessions.insert(std::make_pair(new_session->GetUuid(), new_session));
 
     StartAccept();

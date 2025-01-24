@@ -18,6 +18,9 @@ class CSession;
 
 class LogicSystem : public Singleton<LogicSystem>
 {
+    friend class CSession;
+    friend class Singleton<LogicSystem>;
+
 public:
     ~LogicSystem();
     void PostMesgToQue(std::shared_ptr<LogicNode> node);

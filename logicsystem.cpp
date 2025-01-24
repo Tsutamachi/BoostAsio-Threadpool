@@ -49,8 +49,8 @@ void LogicSystem::HandleHelloWorld(std::shared_ptr<CSession> session,
     reader.parse(msg_data,
                  root); //因为这里传入的参数是string,所以不需要通过buffer首地址和长度来构造string
 
-    std::cout << "recevie msg id  is " << root["id"].asInt() << std::endl
-              << "       msg data is " << root["data"].asString() << std::endl;
+    std::cout << "recevie msg id   is " << root["id"].asInt() << std::endl
+              << "        msg data is " << root["data"].asString() << std::endl;
 
     std::string return_str = root.toStyledString();
     session->Send(return_str.data(), return_str.size(), (short) root["id"].asInt());
