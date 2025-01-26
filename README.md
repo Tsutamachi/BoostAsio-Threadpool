@@ -1,0 +1,2 @@
+# BosstAsio-Threadpool
+参考恋恋风辰大佬，利用BoostAsio完成了一个多io_context的多线程网络通信回显demo。网络通信与消息处理解耦，（intel12代i5）6s能处理十万个信息包。
