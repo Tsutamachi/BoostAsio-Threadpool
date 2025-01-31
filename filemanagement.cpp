@@ -5,6 +5,23 @@ FileManagement::FileManagement() {}
 
 FileManagement::~FileManagement() {}
 
+bool FileManagement::AddFile(const std::string &session_uuid,
+                             short file_id,
+                             std::unique_ptr<FileToReceve> file)
+{
+    std::lock_guard<std::mutex> lock(m_GlobalMutex);
+    //先找到外层Session的入口
+    auto &inner_map = m_Files[session_uuid];
+    //插入File到内层map
+    auto result = inner_map.emplace(file_id, std::move(file));
+    //错误检测
+    if (!result.second) {
+        // 插入失败（FileId 已存在）
+        throw std::runtime_error("FileId already exists in this session");
+    }
+    return true;
+}
+
 bool FileManagement::AddPacket(const std::string &session_uuid,
                                short file_id,
                                int seq,
@@ -29,24 +46,7 @@ bool FileManagement::AddPacket(const std::string &session_uuid,
     return true;
 }
 
-bool FileManagement::AddFile(const std::string &session_uuid,
-                             short file_id,
-                             std::unique_ptr<File> file)
-{
-    std::lock_guard<std::mutex> lock(m_GlobalMutex);
-    //先找到外层Session的入口
-    auto &inner_map = m_Files[session_uuid];
-    //插入File到内层map
-    auto result = inner_map.emplace(file_id, std::move(file));
-    //错误检测
-    if (!result.second) {
-        // 插入失败（FileId 已存在）
-        throw std::runtime_error("FileId already exists in this session");
-    }
-    return true;
-}
-
-File *FileManagement::findFile(const std::string &session_uuid, short file_id)
+FileToReceve *FileManagement::findFile(const std::string &session_uuid, short file_id)
 {
     std::lock_guard<std::mutex> lock(m_GlobalMutex);
 

@@ -56,8 +56,6 @@ short CSession::GetFileId()
             m_FileIds[i] = false;
             return i;
         }
-        if (i == 4)
-            return -1;
     }
     return -1;
 }
@@ -193,23 +191,13 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         short msg_len = 0;
         memcpy(&msg_len, m_RecevHeadNode->m_Data + HEAD_ID_LEN, HEAD_DATA_LEN);
         msg_len = boost::asio::detail::socket_ops::network_to_host_short(msg_len);
-        if (msg_len > MAX_LENGTH) {
+        if (msg_len > TOTAL_LEN) {
             std::cout << "invalid data length is :" << msg_len << std::endl;
             SocketClose();
             m_Server->ClearSession(m_Uuid);
             return;
         }
         // std::cout << "MessageLength:" << msg_len << std::endl;
-
-        short msg_sequence = 0;
-        memcpy(&msg_sequence, m_RecevHeadNode->m_Data + HEAD_IDDATA_LEN, HEAD_SEQUENCE_LEN);
-        msg_sequence = boost::asio::detail::socket_ops::network_to_host_short(msg_sequence);
-        if (msg_sequence < 0) {
-            std::cout << "invalid bag sequence is :" << msg_sequence << std::endl;
-            SocketClose();
-            m_Server->ClearSession(m_Uuid);
-            return;
-        }
 
         // m_RecevHeadNode->Clear();
         m_RecevMsgNode = std::make_shared<RecevNode>(msg_len, msg_id);

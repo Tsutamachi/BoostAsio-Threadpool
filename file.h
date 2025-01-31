@@ -8,20 +8,19 @@
 #include <vector>
 
 //仿照LogicSystem的信息处理逻辑？在滑动窗口中找有无符合要求的数据包
-class File
+
+//用于接收文件的File
+class FileToReceve
 {
     friend class FileManagement;
 
 public:
-    File(short fileid,
-         std::string sessionUuid,
-         std::string filename,
-         unsigned int filesize,
-         int filenum,
-         std::string filehash);
-
-    // 添加数据包（线程安全）
-    bool AddPacket(int seq, const std::vector<char>& data);
+    FileToReceve(short fileid,
+                 std::string sessionUuid,
+                 std::string filename,
+                 unsigned int filesize,
+                 int filenum,
+                 std::string filehash);
 
     // 写入文件（按序处理）
     void FlushToDisk();
@@ -44,7 +43,30 @@ private:
     unsigned int m_NextExpectedSeq;           // 下一个期待的包序号
 
     std::ofstream m_FileSaveStream; // 文件输出流
+    std::ifstream m_FileUploadStream; //发送文件
     std::mutex m_Mutex;             // 缓冲区操作锁
     std::condition_variable m_CV;   // 条件变量
     std::string m_FileHash;         //文件验证哈希值
+};
+
+//用于发送的File
+class FileToSend
+{
+public:
+    FileToSend(std::string filename,
+               unsigned int filesize,
+               int filetotalpackets,
+               std::string filehash);
+    void SetFileId(short fileid);
+
+private:
+    short m_FileId;          //文件在该Session中的Id
+    std::string m_FileName;  //文件名（UTF-8的256字节限定）
+    unsigned int m_FileSize; //文件总长度
+    int m_FileTotalPackets;  //文件总包数
+
+    std::ifstream m_FileUploadStream; //发送文件
+    std::mutex m_Mutex;               // 缓冲区操作锁
+    std::condition_variable m_CV;     // 条件变量
+    std::string m_FileHash;           //文件验证哈希值
 };

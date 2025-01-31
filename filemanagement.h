@@ -33,9 +33,9 @@ private:
     FileManagement();
 
     //注意：什么时候需要清理map中的空闲资源？1、Session关闭 2、超时 3、File验证完毕完成传输后
-    std::unordered_map<std::string,                               //SessionUuid
-                       std::unordered_map<short,                  //FIleId
-                                          std::unique_ptr<File>>> //File指针
+    std::unordered_map<std::string,                                       //SessionUuid
+                       std::unordered_map<short,                          //FIleId
+                                          std::unique_ptr<FileToReceve>>> //File指针
         m_Files;
     std::mutex m_GlobalMutex;
     std::atomic<short> m_NextFileId{0};

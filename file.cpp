@@ -1,11 +1,11 @@
 #include "file.h"
 
-File::File(short fileid,
-           std::string sessionUuid,
-           std::string filename,
-           unsigned int filesize,
-           int filenum,
-           std::string filehash)
+FileToReceve::FileToReceve(short fileid,
+                           std::string sessionUuid,
+                           std::string filename,
+                           unsigned int filesize,
+                           int filenum,
+                           std::string filehash)
     : m_SessionUuid(sessionUuid)
     , m_FileId(fileid)
     , m_FileName(filename)
@@ -14,7 +14,7 @@ File::File(short fileid,
     , m_FileHash(filehash)
 {}
 
-void File::FlushToDisk()
+void FileToReceve::FlushToDisk()
 {
     //tocheck
     while (true) {
@@ -32,10 +32,16 @@ void File::FlushToDisk()
 
         // 3. 移动窗口
         m_NextExpectedSeq++;
+
+        // 文件传输完成检测
+        if (m_NextExpectedSeq >= m_FilePacketsNum) {
+            m_FileSaveStream.close();
+            break;
+        }
     }
 }
 
-void File::CheckMissingPackets()
+void FileToReceve::CheckMissingPackets()
 {
     //tocheck
     std::vector<int> missing_seqs;
@@ -56,4 +62,19 @@ void File::CheckMissingPackets()
     // if (!missing_seqs.empty()) {
     //     RequestRetransmission(missing_seqs);
     // }
+}
+
+FileToSend::FileToSend(std::string filename,
+                       unsigned int filesize,
+                       int filetotalpackets,
+                       std::string filehash)
+    : m_FileName(filename)
+    , m_FileSize(filesize)
+    , m_FileTotalPackets(filetotalpackets)
+    , m_FileHash(filehash)
+{}
+
+void FileToSend::SetFileId(short fileid)
+{
+    m_FileId = fileid;
 }

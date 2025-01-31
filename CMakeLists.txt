@@ -11,7 +11,9 @@ add_executable(MyJsonServer main.cpp cserver.h cserver.cpp
     logicnode.h logicnode.cpp
     servicepool.h servicepool.cpp
     file.h file.cpp
-    filemanagement.h filemanagement.cpp)
+    filemanagement.h filemanagement.cpp
+    hashmd5.h hashmd5.cpp
+    client.h client.cpp)
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 
