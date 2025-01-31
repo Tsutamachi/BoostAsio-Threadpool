@@ -24,6 +24,7 @@ public:
     void Send(const char* msg, short max_len, short msg_id);
     void SocketClose();
     std::shared_ptr<CSession> SharedSelf();
+    short GetFileId();
 
 private:
     void HandleReadHead(const boost::system::error_code& error,
@@ -38,11 +39,13 @@ private:
     boost::asio::io_context& m_IoContext;
     CServer* m_Server;
     std::string m_Uuid;
-    std::queue<std::shared_ptr<MsgNode>> m_SendQue;
+    std::queue<std::shared_ptr<SendNode>> m_SendQue;
     std::mutex m_SendLock;
     bool _close;
 
     char m_Data[MAX_LENGTH];
     std::shared_ptr<MsgNode> m_RecevHeadNode;
     std::shared_ptr<RecevNode> m_RecevMsgNode;
+    // std::array<bool, MAX_UPLOAD_NUM> m_FileIds;
+    bool m_FileIds[MAX_UPLOAD_NUM];
 };

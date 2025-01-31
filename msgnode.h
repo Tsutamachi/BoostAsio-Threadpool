@@ -17,11 +17,13 @@ public:
     char* m_Data;
     short m_CurLen;
     short m_TotalLen;
+    short m_Sequence;
 };
 
 class RecevNode : public MsgNode
 {
 public:
+    RecevNode(short max_len, short msg_id, short sequence);
     RecevNode(short max_len, short msg_id);
     short m_MsgId;
 };
@@ -29,6 +31,7 @@ public:
 class SendNode : public MsgNode
 {
 public:
+    SendNode(const char* msg, short max_len, short msg_id, short sequence);
     SendNode(const char* msg, short max_len, short msg_id);
     short m_MsgId;
 };

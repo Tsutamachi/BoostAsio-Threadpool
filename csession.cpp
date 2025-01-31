@@ -28,7 +28,10 @@ CSession::CSession(boost::asio::io_context &io_context, CServer *server)
 {
     boost::uuids::uuid am_Uuid = boost::uuids::random_generator()();
     m_Uuid = boost::uuids::to_string(am_Uuid);
-    m_RecevHeadNode = std::make_shared<MsgNode>(HEAD_TOTLE_LEN);
+    m_RecevHeadNode = std::make_shared<MsgNode>(HEAD_TOTAL_LEN);
+    for (short i = 0; i < MAX_UPLOAD_NUM; ++i) {
+        m_FileIds[i] = true;
+    }
 }
 
 boost::asio::ip::tcp::socket &CSession::GetSocket()
@@ -46,18 +49,25 @@ std::shared_ptr<CSession> CSession::SharedSelf()
     return shared_from_this();
 }
 
+short CSession::GetFileId()
+{ //只有单例的LogicSystem会访问这个资源，不涉及多线程，所以不需要加锁
+    for (short i = 0; i < MAX_UPLOAD_NUM; ++i) {
+        if (m_FileIds[i] == true) {
+            m_FileIds[i] = false;
+            return i;
+        }
+        if (i == 4)
+            return -1;
+    }
+    return -1;
+}
+
 void CSession::Start()
 {
     //Edition1--非协程
     std::memset(m_Data, 0, MAX_LENGTH);
-    // m_Socket.async_receive(boost::asio::buffer(m_Data, HEAD_TOTLE_LEN),
-    //                        std::bind(&CSession::HandleReadHead,
-    //                                  this,
-    //                                  std::placeholders::_1,
-    //                                  std::placeholders::_2,
-    //                                  SharedSelf()));
     boost::asio::async_read(m_Socket,
-                            boost::asio::buffer(m_Data, HEAD_TOTLE_LEN),
+                            boost::asio::buffer(m_Data, HEAD_TOTAL_LEN),
                             std::bind(&CSession::HandleReadHead,
                                       this,
                                       std::placeholders::_1,
@@ -75,7 +85,7 @@ void CSession::Start()
     //                 m_RecevHeadNode->Clear();
     //                 std::size_t n = co_await boost::asio::async_read(
     //                     m_Socket,
-    //                     boost::asio::buffer(m_RecevHeadNode->m_Data, HEAD_TOTLE_LEN),
+    //                     boost::asio::buffer(m_RecevHeadNode->m_Data, HEAD_TOTAL_LEN),
     //                     use_awaitable);
     //                 if (n == 0) {
     //                     std::cout << "receive peer closed" << std::endl;
@@ -143,14 +153,22 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
                               std::shared_ptr<CSession> shared_self)
 {
     try {
-        if (error) {
-            std::cerr << "ReadHead fails:" << error.what() << std::endl;
+        if (error == boost::asio::error::eof) {
+            // 连接被对端关闭。
+            std::cerr << "Peer closed the connection." << std::endl;
             SocketClose();
             m_Server->ClearSession(m_Uuid);
+            //todo：这里要处理LogicSystem中在FileManagement里管理的Session下File资源？
             //没有return
+        } else if (error) {
+            //其他错误
+            SocketClose();
+            m_Server->ClearSession(m_Uuid);
+            std::cout << "ReadHead fails:" << error.what() << std::endl;
         }
+
         // std::cout << std::endl << "消息头部：" << std::endl;
-        if (bytes_transferred < HEAD_TOTLE_LEN) {
+        if (bytes_transferred < HEAD_TOTAL_LEN) {
             std::cout << "Read head length error" << std::endl;
             SocketClose();
             m_Server->ClearSession(m_Uuid);
@@ -158,13 +176,8 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         }
 
         //如果有特殊要求：遇到某个字符就停止copy,可以用memccpy（Linux函数）.但是memcpy性能更好
-        memcpy(m_RecevHeadNode->m_Data, m_Data, HEAD_TOTLE_LEN);
+        memcpy(m_RecevHeadNode->m_Data, m_Data, HEAD_TOTAL_LEN);
         m_RecevHeadNode->m_CurLen += bytes_transferred;
-
-        //Json序列化针对的是Msg信息体，并不是消息头
-        // Json::Reader reader;
-        // Json::Value root;
-        // reader.parse(std::string(m_RecevHeadNode->m_Data, m_RecevHeadNode->m_TotalLen), root);
 
         short msg_id = 0;
         memcpy(&msg_id, m_RecevHeadNode->m_Data, HEAD_ID_LEN);
@@ -188,17 +201,26 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         }
         // std::cout << "MessageLength:" << msg_len << std::endl;
 
+        short msg_sequence = 0;
+        memcpy(&msg_sequence, m_RecevHeadNode->m_Data + HEAD_IDDATA_LEN, HEAD_SEQUENCE_LEN);
+        msg_sequence = boost::asio::detail::socket_ops::network_to_host_short(msg_sequence);
+        if (msg_sequence < 0) {
+            std::cout << "invalid bag sequence is :" << msg_sequence << std::endl;
+            SocketClose();
+            m_Server->ClearSession(m_Uuid);
+            return;
+        }
+
         // m_RecevHeadNode->Clear();
         m_RecevMsgNode = std::make_shared<RecevNode>(msg_len, msg_id);
 
-        std::memset(m_Data, 0, HEAD_TOTLE_LEN);
+        std::memset(m_Data, 0, HEAD_TOTAL_LEN);
         m_Socket.async_receive(boost::asio::buffer(m_Data, msg_len),
                                std::bind(&CSession::HandleReadMeg,
                                          this,
                                          std::placeholders::_1,
                                          std::placeholders::_2,
                                          SharedSelf()));
-
     } catch (std::exception &e) {
         std::cerr << "HandleReadHead fails.Exception code is:" << e.what() << std::endl;
     }
@@ -219,23 +241,12 @@ void CSession::HandleReadMeg(const boost::system::error_code &error,
         memcpy(m_RecevMsgNode->m_Data, m_Data, m_RecevMsgNode->m_TotalLen);
         m_RecevMsgNode->m_CurLen += bytes_transferred;
 
-        //先获取读取到的信息，再通过反序列化转出
-        // Json::Reader reader;
-        // Json::Value root;
-        // reader.parse(std::string(m_RecevMsgNode->m_Data, m_RecevMsgNode->m_TotalLen), root);
-        // std::cout << "recevie msg id  is " << root["id"].asInt() << "       msg data is "
-        //           << root["data"].asString() << std::endl;
-
-        // root["id"] = boost::asio::detail::socket_ops::network_to_host_short(root["id"].asInt());//不需要
-        // std::string msg_data = root.toStyledString();
-        // Send(msg_data.data(), msg_data.size(), (short) root["id"].asInt());
-
         LogicSystem::GetInstance()->PostMesgToQue(
             make_shared<LogicNode>(shared_from_this(), m_RecevMsgNode));
-        std::memset(m_Data, 0, HEAD_TOTLE_LEN);
+        std::memset(m_Data, 0, HEAD_TOTAL_LEN);
         // m_RecevMsgNode->Clear();
 
-        m_Socket.async_receive(boost::asio::buffer(m_Data, HEAD_TOTLE_LEN),
+        m_Socket.async_receive(boost::asio::buffer(m_Data, HEAD_TOTAL_LEN),
                                std::bind(&CSession::HandleReadHead,
                                          this,
                                          std::placeholders::_1,
@@ -246,12 +257,15 @@ void CSession::HandleReadMeg(const boost::system::error_code &error,
     }
 }
 
+// std::string msg_data = root.toStyledString();
+// Send(msg_data.data(), msg_data.size(), (short) root["id"].asInt());data或c_str函数能返回首地址
+// 该函数在LogicSystem中被调用
 void CSession::Send(const char *msg, short max_len, short msg_id)
 {
     std::lock_guard<std::mutex> lock(m_SendLock);
     int sendQueueLen = m_SendQue.size();
     if (sendQueueLen > MAX_SENDQUE) {
-        std::cout << "session: " << m_Uuid << "   send que fulled, size now is " << MAX_SENDQUE
+        std::cout << "session: " << m_Uuid << "   send queue fulled, size now is " << MAX_SENDQUE
                   << std::endl;
         return;
     }
@@ -281,7 +295,7 @@ void CSession::HandleWrite(const boost::system::error_code &error,
     try {
         if (!error) {
             std::lock_guard<std::mutex> lock(m_SendLock);
-            // std::cout << "send data " << m_SendQue.front()->m_Data + HEAD_TOTLE_LEN << std::endl;
+            // std::cout << "send data " << m_SendQue.front()->m_Data + HEAD_TOTAL_LEN << std::endl;
             m_SendQue.pop();
             //继续处理下一个队列中的信息。没有就不管，解锁。
             if (!m_SendQue.empty()) {

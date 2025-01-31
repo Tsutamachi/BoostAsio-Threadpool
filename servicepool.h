@@ -8,7 +8,7 @@
 
 class ServicePool /*: public Singleton<ServicePool>*/
 {
-    // friend Singleton<ServicePool>;
+    // friend class Singleton<ServicePool>;
 
 public:
     using WorkPtr = std::unique_ptr<boost::asio::io_context::work>;
@@ -25,7 +25,6 @@ private:
     ServicePool();
 
     std::size_t size = std::thread::hardware_concurrency();
-    // std::size_t size = 2;
     std::mutex m_Mutex;
     std::vector<WorkPtr> m_Works; //Work是为了防止context开始时因为没有事件注册而直接退出
     std::vector<boost::asio::io_context> m_Services;
