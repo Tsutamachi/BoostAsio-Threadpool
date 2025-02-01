@@ -8,9 +8,10 @@ class Client
 public:
     Client();
     void AddFileToSend();
+    FileToSend FindFileToSend(short fileid);
 
 private:
     std::vector<std::unique_ptr<FileToSend>> m_FilesToSend;
-    std::unique_ptr<FileToSend>
-        m_TempFile; //为了解决在没有FileId前，不能对应到m_FilesToSend进行存储的问题。
+    //TempFile为了解决在没有FileId前，不能对应到m_FilesToSend进行存储的问题。
+    std::unique_ptr<FileToSend> m_TempFile;
 };

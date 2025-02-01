@@ -67,11 +67,13 @@ void FileToReceve::CheckMissingPackets()
 FileToSend::FileToSend(std::string filename,
                        unsigned int filesize,
                        int filetotalpackets,
-                       std::string filehash)
+                       std::string filehash,
+                       std::ifstream file)
     : m_FileName(filename)
     , m_FileSize(filesize)
     , m_FileTotalPackets(filetotalpackets)
     , m_FileHash(filehash)
+    , m_FileUploadStream(file)
 {}
 
 void FileToSend::SetFileId(short fileid)

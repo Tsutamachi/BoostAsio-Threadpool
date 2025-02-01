@@ -34,16 +34,16 @@ private:
     std::string m_SessionUuid; //所属Session的Uuid
     short m_FileId;            //文件在该Session中的Id
     std::string m_FileName;    //文件名（UTF-8的256字节限定）
-    unsigned int m_FileSize;   //文件总长度
-    int m_FileTotalPackets;    //文件总包数
+    unsigned int m_FileSize;   //文件总长度2**32
+    unsigned int m_FileTotalPackets; //文件总包数
 
     static constexpr int WINDOW_SIZE = 1024;                 //滑动窗口的大小
     std::array<std::vector<char>, WINDOW_SIZE> m_DataBuffer; //滑动窗口
     std::bitset<WINDOW_SIZE> m_ReceivedFlags; //用来记录哪些窗口已经被载入 set1 resert0
     unsigned int m_NextExpectedSeq;           // 下一个期待的包序号
 
-    std::ofstream m_FileSaveStream; // 文件输出流
-    std::ifstream m_FileUploadStream; //发送文件
+    // std::ofstream m_FileSaveStream; // 接收文件
+    // std::ifstream m_FileUploadStream; //发送文件
     std::mutex m_Mutex;             // 缓冲区操作锁
     std::condition_variable m_CV;   // 条件变量
     std::string m_FileHash;         //文件验证哈希值
@@ -52,18 +52,22 @@ private:
 //用于发送的File
 class FileToSend
 {
+    friend class FileManagement;
+
 public:
     FileToSend(std::string filename,
                unsigned int filesize,
                int filetotalpackets,
-               std::string filehash);
+               std::string filehash,
+               std::ifstream file);
     void SetFileId(short fileid);
 
 private:
+    std::stirng m_FilePath;  //文件在Client中的路径，用于打开文件
     short m_FileId;          //文件在该Session中的Id
     std::string m_FileName;  //文件名（UTF-8的256字节限定）
     unsigned int m_FileSize; //文件总长度
-    int m_FileTotalPackets;  //文件总包数
+    unsigned int m_FileTotalPackets; //文件总包数
 
     std::ifstream m_FileUploadStream; //发送文件
     std::mutex m_Mutex;               // 缓冲区操作锁

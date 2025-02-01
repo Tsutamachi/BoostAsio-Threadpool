@@ -20,7 +20,7 @@ public:
     // 添加数据包到指定传输任务
     bool AddPacket(const std::string& session_uuid,
                    short file_id,
-                   int seq,
+                   unsigned int seq,
                    const std::vector<char>& data);
 
     bool AddFile(const std::string& session_uuid, short file_id, std::unique_ptr<File> file);

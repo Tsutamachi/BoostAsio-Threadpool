@@ -19,8 +19,8 @@
 //普通数据包的结构：
 //数据部分加上ID一共为1024
 #define MAX_LENGTH 1024              //buffer的长度
-#define FILE_ID 4                    //普通数据包的内容之一
-#define FILE_SEQUENCE_LEN 4          //初包和其他包为0,数据包从1开始
+#define FILE_ID 1                    //普通数据包的内容之一
+#define FILE_SEQUENCE_LEN 4          //从0开始。更好计算此包在文件中是首地址
 #define FILE_DATA_LEN 1024 - FILE_ID - FILE_SEQUENCE_LEN //数据包中数据的长度
 
 #define TOTAL_LEN 1024 + HEAD_TOTAL_LEN //发送时一个包的长度，一次发送需要包括包头和数据
@@ -34,8 +34,11 @@
 //MessageId     前1000一般留给系统级的消息，其余的留给业务级
 enum MSG_IDS {
     Test = 1001,
-    FileFirstBag = 2001, //Client端发出
-    FileDataBag = 2002,  //Client端发出
-    FileFinalBag = 2003, //Client端发出
-    ReturnFileId = 2004  //Server端发出
+    FileFirstBag = 2001, //Client端发出--发起传输文件的请求
+    ReturnFileId = 2002, //Server端发出--接受传输文件的请求
+    FileDataBag = 2003,  //Client端发出--发送的文件数据包
+    FileFinalBag = 2004, //Client端发出--发送的文件最后数据包
+    FileFinish = 2005,   //Client端发出--发送文件完毕
+    TellLostBag = 2006,  //Server端发出--告知丢包
+    FileLostBag = 2007   //Client端发出--发送丢失的包
 };

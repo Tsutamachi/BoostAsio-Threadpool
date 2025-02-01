@@ -72,3 +72,12 @@ std::string HashMD5::CalculateLargeFileHash(const std::string &filepath)
 
     return ss.str();
 }
+
+bool HashMd5::VerifyFileHash(const std::string &filepath, const std::stringstream clienthash)
+{
+    std::stringstream serverhash = HashMD5::CalculateFileHash(filepath);
+    if (serverhash == clienthash)
+        return true;
+    else
+        return false;
+}

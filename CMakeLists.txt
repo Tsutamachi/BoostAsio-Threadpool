@@ -13,7 +13,8 @@ add_executable(MyJsonServer main.cpp cserver.h cserver.cpp
     file.h file.cpp
     filemanagement.h filemanagement.cpp
     hashmd5.h hashmd5.cpp
-    client.h client.cpp)
+    client.h client.cpp
+    base64_code.h base64_code.cpp)
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 

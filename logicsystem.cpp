@@ -1,4 +1,5 @@
 #include "logicsystem.h"
+#include "base64_code.h"
 #include "csession.h"
 #include "defines.h"
 #include "file.h"
@@ -10,6 +11,7 @@
 #include <json/value.h>
 #include <string>
 
+//这一层的数据处理，只需要考虑数据包部分，包头由MegNode进行自动封装
 LogicSystem::LogicSystem()
     : m_stop(false)
 {
@@ -107,7 +109,9 @@ void LogicSystem::RegisterCallBacks()
 
 //Server只提供下载请求（Server1->Server2），Client只提供上传请求(Client->Server)
 
-//Server接受test
+//Client->Server.   Server接受test
+//发：Test
+//收：Test
 void LogicSystem::HandleTest(std::shared_ptr<CSession> session, const std::string &msg_data)
 { //echo模式，回显回到Client端
     Json::Reader reader;
@@ -123,12 +127,18 @@ void LogicSystem::HandleTest(std::shared_ptr<CSession> session, const std::strin
     session->Send(return_str.data(), return_str.size(), (short) root["id"].asInt());
 }
 
-//Client端提出上传请求--隶属于CSession层--与Client对象相关的部分可能有错误
+//Client->Server.   Client端提出上传请求--隶属于Client应用层用于提出功能请求--与Client对象相关的部分可能有错误
+//发：FileFirstBag
+//收：ReturnFileId
 void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
+    //生成文件，并初始化一个FileToSend对象（受Client对象管理）用于后续传送文件包
     std::string filepath;
     std::cout << "Please enter the path of file you want to upload: ";
     std::getline(std::cin, filepath);
+
+    //获取文件的Hash值用于Server验证文件是否传输成功
+    std::string filehash = HashMD5::CalculateFileHash(filepath);
 
     //先定位到文末，计算大小，再重置到文初
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
@@ -141,19 +151,21 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
     std::string filename = pathObj.filename().string();
 
     // 获取文件大小
-    size_t file_size = file.tellg();
+    unsigned int file_size = file.tellg();
     file.seekg(0);
 
     //计算总包数
-    size_t total_packets = (file_size + FILE_DATA_LEN - 1) / FILE_DATA_LEN;
+    unsigned int total_packets = (file_size + FILE_DATA_LEN - 1) / FILE_DATA_LEN;
 
-    //获取文件的Hash值用于Server验证文件是否传输成功
-    std::string filehash = HashMD5::CalculateFileHash(filepath);
+    Client.m_TempFile = std::make_unique<FileToSend>(filename,
+                                                     file_size,
+                                                     total_packets,
+                                                     filehash,
+                                                     std::move(file));
 
-    Client.m_TempFile = std::make_unique<FileToSend>(filename, file_size, total_packets, filehash);
+    // short msg_id = boost::asio::detail::socket_ops::host_to_network_short(FileFirstBag);
 
-    short msg_id = boost::asio::detail::socket_ops::host_to_network_short(FileFirstBag);
-
+    //构造要传给Server的数据
     Json::Value root;
     root["FileName"] = filename;
     root["FileSize"] = file_size;
@@ -161,48 +173,53 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
     root["FileHash"] = filehash;
     std::string target = root.toStyledString();
 
-    short msg_len = boost::asio::detail::socket_ops::host_to_network_shor(target.size());
+    // short msg_len = boost::asio::detail::socket_ops::host_to_network_shor(target.size());
 
-    auto packet = std::make_shared<std::vector<char>>(len);
+    // auto packet = std::make_shared<std::vector<char>>(len); //为什么这里使用共享指针？
 
-    size_t offset = 0;
-    memcpy(packet->data() + offset, &net_msg_id, HEAD_ID_LEN);
-    offset += HEAD_ID_LEN;
-    memcpy(packet->data() + offset, &net_msg_len, HEAD_DATA_LEN);
-    offset += HEAD_DATA_LEN;
-    memcpy(packet->data() + offset, target.data(), target.size());
+    // size_t offset = 0;
+    // memcpy(packet->data() + offset, &net_msg_id, HEAD_ID_LEN);
+    // offset += HEAD_ID_LEN;
+    // memcpy(packet->data() + offset, &net_msg_len, HEAD_DATA_LEN);
+    // offset += HEAD_DATA_LEN;
+    // memcpy(packet->data() + offset, target.data(), target.size());
 
-    boost::asio::async_write(Client.GetSocket(),
-                             boost::asio::buffer(packet.data(), target.size() + HEAD_TOTAL_LEN),
-                             std::bind(&CSession::HandleReadHead,
-                                       this,
-                                       std::placeholders::_1,
-                                       std::placeholders::_2,
-                                       SharedSelf()));
+    // boost::asio::async_write(Client.GetSocket(),
+    //                          boost::asio::buffer(packet.data(), target.size() + HEAD_TOTAL_LEN),
+    //                          std::bind(&CSession::HandleReadHead,
+    //                                    this, //这里应该是Client端创建的CSession对象，并不是this
+    //                                    std::placeholders::_1,
+    //                                    std::placeholders::_2,
+    //                                    SharedSelf()));
+    session->Send(target.data(), target.size(), FileFirstBag);
 }
 
-//Server处理Client发出的上传请求
+//Client->Server.   Server处理Client发出的上传请求
+//收：FileFirstBag
+//发：ReturnFileId
 void LogicSystem::HandleReadFirstFileBag(std::shared_ptr<CSession> session,
                                          const std::string &msg_data)
 {
+    //读取获得的文件信息
     Json::Reader reader;
     Json::Value root;
-    reader.parse(msg_data,
-                 root); //因为这里传入的参数是string,所以不需要通过buffer首地址和长度来构造string}
+    reader.parse(msg_data, root);
     std::string filename = root["FileName"].asString();
+    unsigned int filesize = root["FileSize"].asUInt();
+    unsigned int filenum = root["TotalPacketsNum"].asUInt(); //总的包数
     std::string filehash = root["FileHash"].asString();
-    unsigned int filesize = root["FileSize"].asInt();
-    int filenum = root["PacketsNum"].asInt(); //总的包数
     std::cout << "File Name:\t" << filename << std::endl
               << "File Size:\t" << filesize << std::endl
               << "Packet Num:\t" << filenum << std::endl;
 
     //由Session分配一个FileId
     short fileid = session->GetFileId(); //从0开始到4
+
+    //创建File对象用于接收文件数据包和持久化文件
     if (!(fileid + 1)) {
         std::cout << "File upload num is full. Client can only upload 5 files in the same time!"
                   << std::endl;
-    } else { //FileId有效才创建对象
+    } else {
         std::unique_ptr<FileToReceve> file = std::make_unique<FileToReceve>(fileid,
                                                                             session->GetUuid(),
                                                                             filename,
@@ -212,29 +229,26 @@ void LogicSystem::HandleReadFirstFileBag(std::shared_ptr<CSession> session,
         FileManagement::GetInstance()->AddFile(session->GetUuid(), fileid, std::move(file));
     }
 
-    char send_data[TOTAL_LEN] = {0};
+    // char send_data[TOTAL_LEN] = {0};
     Json::Value Msg;
     Msg["FileId"] = fileid;
     std::string request = Msg.toStyledString();
 
-    int msgid = ReturnFileId;
-    msgid = boost::asio::detail::socket_ops::host_to_network_short(msgid);
-    memcpy(send_data, &msgid, HEAD_ID_LEN);
+    // int msgid = boost::asio::detail::socket_ops::host_to_network_short(ReturnFileId);
+    // memcpy(send_data, &msgid, HEAD_ID_LEN);
 
-    size_t request_length = request.length();
-    int request_host_length = boost::asio::detail::socket_ops::host_to_network_short(request_length);
-    memcpy(send_data + HEAD_ID_LEN, &request_host_length, HEAD_DATA_LEN);
+    // size_t request_length = request.length();
+    // int request_host_length = boost::asio::detail::socket_ops::host_to_network_short(request_length);
+    // memcpy(send_data + HEAD_ID_LEN, &request_host_length, HEAD_DATA_LEN);
 
-    int seq = 0;
-    seq = boost::asio::detail::socket_ops::host_to_network_short(seq);
-    memcpy(send_data + HEAD_ID_LEN + HEAD_DATA_LEN, &seq, HEAD_SEQUENCE_LEN);
+    // memcpy(send_data + HEAD_TOTAL_LEN, request.data(), request_length);
 
-    memcpy(send_data + HEAD_TOTAL_LEN, request.c_str(), request_length);
-    boost::asio::write(session->GetSocket(),
-                       boost::asio::buffer(send_data, request_length + HEAD_TOTAL_LEN));
+    session->Send(request.data(), request.length(), FileFirstBag);
 }
 
-//Client接受Server返回的上传响应--开始上传数据--最后投递到发送队列的部分可能有错误
+//Server->Client.   Client接受Server返回的上传响应--开始上传数据--最后投递到发送队列的部分可能有错误
+//收：ReturnFileId
+//发：FileDataBag  、FileFinish
 void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
     //接受数据FileId
@@ -245,47 +259,77 @@ void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const s
         return;
     }
 
-    short fileid = root["FileId"].asInt(); // 使用 asInt() 替代 asShort()
+    short fileid = root["FileId"].asShort(); // 使用 asInt() 替代 asShort()
     if (fileid < 0) {
         std::cerr << "FileId invalid!" << std::endl;
         return;
     }
 
-    std::vector<char> dataBuffer(FILE_DATA_LEN);
-    size_t seq = 1;
+    Client.m_TempFile->SetFileId(fileid);
+    Client.AddFileToSend(Client.m_TempFile);
 
-    while (file.read(dataBuffer.data(), FILE_DATA_LEN)) {
-        size_t bytes_read = file.gcount();
+    FileToSend filetosend = Client.FindFileToSend(fileid);
+
+    // std::vector<char> dataBuffer(FILE_DATA_LEN);
+    unsigned int seq = 0;
+
+    while (filetosend.m_FileUploadStream.read(dataBuffer.data(), FILE_DATA_LEN)) {
+        size_t bytes_read = filetosend.m_FileUploadStream.gcount();
 
         // 构造 JSON 数据
         Json::Value Msg;
         Msg["FileId"] = fileid;
         Msg["Sequence"] = static_cast<Json::UInt>(seq);
-        Msg["Data"] = base64_encode(dataBuffer.data(), bytes_read); // Base64 编码
+        // Base64 编码(利用openssl/BoostAsio库中函数自己实现编码).Json不能传送二进制文件，只能传文本
+        Msg["Data"] = Base64_Code::base64_encode(dataBuffer.data(), bytes_read);
 
         std::string target = Msg.toStyledString();
-        if (target.size() > std::numeric_limits<short>::max()) {
+        if (target.size() > std::numeric_limits<short>::max()) { //max为32767
             throw std::runtime_error("Packet too large");
         }
 
-        size_t msg_len = HEAD_TOTAL_LEN + target.size();
-        auto packet = std::make_shared<std::vector<char>>(len);
+        // size_t msg_len = HEAD_TOTAL_LEN + target.size();
+        // auto packet = std::make_shared<std::vector<char>>(len);
 
         // 填充包头
-        short net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(FileDataBag);
-        short net_msg_len = boost::asio::detail::socket_ops::host_to_network_short(target.size());
+        // short net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(FileDataBag);
+        // short net_msg_len = boost::asio::detail::socket_ops::host_to_network_short(target.size());
 
-        size_t offset = 0;
-        memcpy(packet->data() + offset, &net_msg_id, sizeof(net_msg_id));
-        offset += sizeof(net_msg_id);
-        memcpy(packet->data() + offset, &net_msg_len, sizeof(net_msg_len));
-        offset += sizeof(net_msg_len);
-        memcpy(packet->data() + offset, target.data(), target.size());
+        // size_t offset = 0;
+        // memcpy(packet->data() + offset, &net_msg_id, sizeof(net_msg_id));
+        // offset += sizeof(net_msg_id);
+        // memcpy(packet->data() + offset, &net_msg_len, sizeof(net_msg_len));
+        // offset += sizeof(net_msg_len);
+        // memcpy(packet->data() + offset, target.data(), target.size());
 
         // 加入发送队列
-        session->Send(packet->data(), packet->size(), FileDataBag);
+        session->Send(target->data(), target->size(), FileDataBag);
         seq++;
     }
+    filetosend.m_FileUploadStream.close();
+    //发送完后需要再接收一个Server确认文件完整的包。在获得确认完整后再在Client的File队列中删除该File
+    Json::Value Finish;
+    Finish["Filefinish"] = 1;
+    std::string target1 = Finish.toStyledString();
+    session->Send(target1->data(), target1->size(), FileFinish);
+}
 
-    file.close();
+//Client->Server.   Server接受数据
+//收：FileDataBag
+void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const std::string &msg_data)
+{
+    //接受数据FileId
+    Json::Reader reader;
+    Json::Value root;
+    if (!reader.parse(msg_data, root)) {
+        std::cerr << "JSON parse error" << std::endl;
+        return;
+    }
+
+    short fileid = root["FileId"].asInt();
+    unsigned int seq = root["Sequence"].asUInt();
+    std::string data = root["Data"].asString();
+    std::vector<char> filedata = Base64_Code::base64_decode(data); //二进制文件
+
+    FileManagement::GetInstance()->AddPacket(session->GetUuid(), fileid, seq, filadata);
 }
