@@ -20,25 +20,39 @@
 // using boost::asio::detached;
 // using boost::asio::use_awaitable;
 
-CSession::CSession(boost::asio::io_context &io_context, CServer *server)
+// CSession::CSession(boost::asio::io_context &io_context, CServer *server)
+//     : m_Socket(io_context)
+//     , m_IoContext(io_context) //下文并未提及
+//     , m_Server(server)        //只起到关闭的作用
+//     , _close(false)
+// {
+//     boost::uuids::uuid am_Uuid = boost::uuids::random_generator()();
+//     m_Uuid = boost::uuids::to_string(am_Uuid);
+//     m_RecevHeadNode = std::make_shared<MsgNode>(HEAD_TOTAL_LEN);
+//     for (short i = 0; i < MAX_UPLOAD_NUM; ++i) {
+//         m_FileIds[i] = true;
+//     }
+// }
+
+// CSession::CSession(boost::asio::ip::tcp::socket &socket, Client *client)
+//     : m_Socket(socket)
+//     , m_Client(client)
+//     , _close(false)
+// {}
+// 通用构造函数实现
+CSession::CSession(boost::asio::io_context &io_context, void *owner, Role role)
     : m_Socket(io_context)
-    , m_IoContext(io_context) //下文并未提及
-    , m_Server(server)        //只起到关闭的作用
+    , m_IoContext(io_context)
+    , m_Owner(owner)
+    , m_Role(role)
     , _close(false)
 {
+    // 初始化 UUID 和 FileIds
     boost::uuids::uuid am_Uuid = boost::uuids::random_generator()();
     m_Uuid = boost::uuids::to_string(am_Uuid);
     m_RecevHeadNode = std::make_shared<MsgNode>(HEAD_TOTAL_LEN);
-    for (short i = 0; i < MAX_UPLOAD_NUM; ++i) {
-        m_FileIds[i] = true;
-    }
+    std::memset(m_FileIds, true, sizeof(m_FileIds));
 }
-
-CSession::CSession(boost::asio::ip::tcp::socket &socket, Client *client)
-    : m_Socket(socket)
-    , m_Client(client)
-    , _close(false)
-{}
 
 boost::asio::ip::tcp::socket &CSession::GetSocket()
 {
@@ -58,7 +72,7 @@ std::shared_ptr<CSession> CSession::SharedSelf()
 short CSession::GetFileId()
 { //只有单例的LogicSystem会访问这个资源，不涉及多线程，所以不需要加锁
     for (short i = 0; i < MAX_UPLOAD_NUM; ++i) {
-        if (m_FileIds[i] == true) {
+        if (m_FileIds[i]) {
             m_FileIds[i] = false;
             return i;
         }
@@ -78,73 +92,75 @@ void CSession::Start()
                                       std::placeholders::_2,
                                       SharedSelf()));
 
-    //Edition2--协程
-    // auto shared_this = shared_from_this();
-    // //开启接受协程
-    // boost::asio::co_spawn(
-    //     m_IoContext,
-    //     [shared_this, this]() -> awaitable<void> {
-    //         try {
-    //             while (!_close) {
-    //                 m_RecevHeadNode->Clear();
-    //                 std::size_t n = co_await boost::asio::async_read(
-    //                     m_Socket,
-    //                     boost::asio::buffer(m_RecevHeadNode->m_Data, HEAD_TOTAL_LEN),
-    //                     use_awaitable);
-    //                 if (n == 0) {
-    //                     std::cout << "receive peer closed" << std::endl;
-    //                     SocketClose();
-    //                     m_Server->ClearSession(m_Uuid);
-    //                     co_return;
-    //                 }
+    {
+        //Edition2--协程
+        // auto shared_this = shared_from_this();
+        // //开启接受协程
+        // boost::asio::co_spawn(
+        //     m_IoContext,
+        //     [shared_this, this]() -> awaitable<void> {
+        //         try {
+        //             while (!_close) {
+        //                 m_RecevHeadNode->Clear();
+        //                 std::size_t n = co_await boost::asio::async_read(
+        //                     m_Socket,
+        //                     boost::asio::buffer(m_RecevHeadNode->m_Data, HEAD_TOTAL_LEN),
+        //                     use_awaitable);
+        //                 if (n == 0) {
+        //                     std::cout << "receive peer closed" << std::endl;
+        //                     SocketClose();
+        //                     m_Server->ClearSession(m_Uuid);
+        //                     co_return;
+        //                 }
 
-    //                 //MSG_ID
-    //                 short msg_id = 0;
-    //                 memcpy(&msg_id, m_RecevHeadNode->m_Data, HEAD_ID_LEN);
-    //                 msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
-    //                 if (msg_id > MAX_LENGTH) {
-    //                     std::cout << "invalid msg_id!" << std::endl;
-    //                     SocketClose();
-    //                     m_Server->ClearSession(m_Uuid);
-    //                     co_return;
-    //                 }
-    //                 //MSG_LEN
-    //                 short msg_len = 0;
-    //                 memcpy(&msg_len, m_RecevHeadNode->m_Data + HEAD_ID_LEN, HEAD_DATA_LEN);
-    //                 msg_len = boost::asio::detail::socket_ops::network_to_host_short(msg_len);
-    //                 if (msg_len > MAX_LENGTH) {
-    //                     std::cout << "invalid msg_len!" << std::endl;
-    //                     SocketClose();
-    //                     m_Server->ClearSession(m_Uuid);
-    //                     co_return;
-    //                 }
+        //                 //MSG_ID
+        //                 short msg_id = 0;
+        //                 memcpy(&msg_id, m_RecevHeadNode->m_Data, HEAD_ID_LEN);
+        //                 msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
+        //                 if (msg_id > MAX_LENGTH) {
+        //                     std::cout << "invalid msg_id!" << std::endl;
+        //                     SocketClose();
+        //                     m_Server->ClearSession(m_Uuid);
+        //                     co_return;
+        //                 }
+        //                 //MSG_LEN
+        //                 short msg_len = 0;
+        //                 memcpy(&msg_len, m_RecevHeadNode->m_Data + HEAD_ID_LEN, HEAD_DATA_LEN);
+        //                 msg_len = boost::asio::detail::socket_ops::network_to_host_short(msg_len);
+        //                 if (msg_len > MAX_LENGTH) {
+        //                     std::cout << "invalid msg_len!" << std::endl;
+        //                     SocketClose();
+        //                     m_Server->ClearSession(m_Uuid);
+        //                     co_return;
+        //                 }
 
-    //                 //MSG
-    //                 m_RecevMsgNode = std::make_shared<RecevNode>(msg_len, msg_id);
-    //                 n = co_await boost::asio::async_read(m_Socket,
-    //                                                      boost::asio::buffer(m_RecevMsgNode->m_Data,
-    //                                                                          m_RecevMsgNode
-    //                                                                              ->m_TotalLen),
-    //                                                      use_awaitable);
-    //                 if (n == 0) {
-    //                     std::cout << "receive peer closed" << std::endl;
-    //                     SocketClose();
-    //                     m_Server->ClearSession(m_Uuid);
-    //                     co_return;
-    //                 }
-    //                 m_RecevMsgNode->m_Data[m_RecevMsgNode->m_TotalLen] = '\0';
-    //                 std::cout << "Recev Data is: " << m_RecevMsgNode->m_Data << std::endl;
-    //                 LogicSystem::GetInstance()->PostMesgToQue(
-    //                     std::make_shared<LogicNode>(shared_from_this(), m_RecevMsgNode));
-    //             }
+        //                 //MSG
+        //                 m_RecevMsgNode = std::make_shared<RecevNode>(msg_len, msg_id);
+        //                 n = co_await boost::asio::async_read(m_Socket,
+        //                                                      boost::asio::buffer(m_RecevMsgNode->m_Data,
+        //                                                                          m_RecevMsgNode
+        //                                                                              ->m_TotalLen),
+        //                                                      use_awaitable);
+        //                 if (n == 0) {
+        //                     std::cout << "receive peer closed" << std::endl;
+        //                     SocketClose();
+        //                     m_Server->ClearSession(m_Uuid);
+        //                     co_return;
+        //                 }
+        //                 m_RecevMsgNode->m_Data[m_RecevMsgNode->m_TotalLen] = '\0';
+        //                 std::cout << "Recev Data is: " << m_RecevMsgNode->m_Data << std::endl;
+        //                 LogicSystem::GetInstance()->PostMesgToQue(
+        //                     std::make_shared<LogicNode>(shared_from_this(), m_RecevMsgNode));
+        //             }
 
-    //         } catch (std::system_error &e) {
-    //             std::cout << "exception is " << e.what() << std::endl;
-    //             SocketClose();
-    //             m_Server->ClearSession(m_Uuid);
-    //         }
-    //     },
-    //     detached);
+        //         } catch (std::system_error &e) {
+        //             std::cout << "exception is " << e.what() << std::endl;
+        //             SocketClose();
+        //             m_Server->ClearSession(m_Uuid);
+        //         }
+        //     },
+        //     detached);
+    }
 }
 
 void CSession::SocketClose()
@@ -160,22 +176,34 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         if (error == boost::asio::error::eof) {
             // 连接被对端关闭。
             std::cerr << "Peer closed the connection." << std::endl;
-            SocketClose();
-            m_Server->ClearSession(m_Uuid);
+            if (auto server = GetServerOwner()) {
+                server->ClearSession(m_Uuid); // Server 端清理
+                SocketClose();
+            } else if (auto client = GetClientOwner()) {
+                client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
+            }
             //todo：这里要处理LogicSystem中在FileManagement里管理的Session下File资源？
             //没有return
         } else if (error) {
             //其他错误
-            SocketClose();
-            m_Server->ClearSession(m_Uuid);
+            if (auto server = GetServerOwner()) {
+                server->ClearSession(m_Uuid); // Server 端清理
+                SocketClose();
+            } else if (auto client = GetClientOwner()) {
+                client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
+            }
             std::cout << "ReadHead fails:" << error.what() << std::endl;
         }
 
         // std::cout << std::endl << "消息头部：" << std::endl;
         if (bytes_transferred < HEAD_TOTAL_LEN) {
             std::cout << "Read head length error" << std::endl;
-            SocketClose();
-            m_Server->ClearSession(m_Uuid);
+            if (auto server = GetServerOwner()) {
+                server->ClearSession(m_Uuid); // Server 端清理
+                SocketClose();
+            } else if (auto client = GetClientOwner()) {
+                client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
+            }
             return;
         }
 
@@ -188,8 +216,12 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
         if (msg_id > MAX_LENGTH) {
             std::cout << "invalid data id is :" << msg_id << std::endl;
-            SocketClose();
-            m_Server->ClearSession(m_Uuid);
+            if (auto server = GetServerOwner()) {
+                server->ClearSession(m_Uuid); // Server 端清理
+                SocketClose();
+            } else if (auto client = GetClientOwner()) {
+                client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
+            }
             return;
         }
         // std::cout << "MessageId:" << msg_id << std::endl;
@@ -199,8 +231,12 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         msg_len = boost::asio::detail::socket_ops::network_to_host_short(msg_len);
         if (msg_len > TOTAL_LEN) {
             std::cout << "invalid data length is :" << msg_len << std::endl;
-            SocketClose();
-            m_Server->ClearSession(m_Uuid);
+            if (auto server = GetServerOwner()) {
+                server->ClearSession(m_Uuid); // Server 端清理
+                SocketClose();
+            } else if (auto client = GetClientOwner()) {
+                client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
+            }
             return;
         }
         // std::cout << "MessageLength:" << msg_len << std::endl;
@@ -227,8 +263,12 @@ void CSession::HandleReadMeg(const boost::system::error_code &error,
     try {
         if (error) {
             std::cerr << "ReadMsg fails:" << error.what() << std::endl;
-            SocketClose();
-            m_Server->ClearSession(m_Uuid);
+            if (auto server = GetServerOwner()) {
+                server->ClearSession(m_Uuid); // Server 端清理
+                SocketClose();
+            } else if (auto client = GetClientOwner()) {
+                client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
+            }
             //没有return
         }
         // std::cout << std::endl << "消息体:" << std::endl;
@@ -305,8 +345,12 @@ void CSession::HandleWrite(const boost::system::error_code &error,
             }
         } else {
             std::cout << "handle write failed, error is " << error.what() << std::endl;
-            SocketClose();
-            m_Server->ClearSession(m_Uuid);
+            if (auto server = GetServerOwner()) {
+                server->ClearSession(m_Uuid); // Server 端清理
+                SocketClose();
+            } else if (auto client = GetClientOwner()) {
+                client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
+            }
         }
     } catch (std::exception &e) {
         std::cerr << "Exception code : " << e.what() << std::endl;

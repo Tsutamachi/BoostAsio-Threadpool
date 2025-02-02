@@ -44,8 +44,8 @@ int main()
 
             //尝试连接Server
             boost::asio::io_context ioc1;
-            tcp::endpoint remote_ep(address::from_string(serverip), PORT);
-            tcp::socket sock(ioc1);
+            boost::asio::ip::tcp::endpoint remote_ep(address::from_string(serverip), PORT);
+            boost::asio::ip::tcp::socket sock(ioc1);
             boost::system::error_code error = boost::asio::error::host_not_found;
             ;
             sock.connect(remote_ep, error);
