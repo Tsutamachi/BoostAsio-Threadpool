@@ -1,4 +1,5 @@
 //优雅退出：Asio版本
+#include "client.h"
 #include "cserver.h"
 #include "defines.h"
 #include "servicepool.h"
@@ -6,23 +7,76 @@
 
 int main()
 {
-    try {
-        auto& pool = ServicePool::GetInstance();
-        boost::asio::io_context ioc; //用于监测退出信号
-        boost::asio::signal_set
-            sigquit(ioc,
+    bool flag = true;
+    while (flag) {
+        //选择启动角色--Server or Client
+        std::string role;
+        std::cout << "Are you going to log in as Server?(yes->Server  no->Client) ";
+        std::getline(std::cin, role);
+
+        //Log as Server
+        if (role == "YES" || role == "yes" || role == "Yes") {
+            try {
+                auto& pool = ServicePool::GetInstance();
+                boost::asio::io_context ioc; //用于监测退出信号
+                boost::asio::signal_set sigquit(
+                    ioc,
                     SIGINT,
                     SIGTERM); //第一个信号是Ctrl+c的强制退出，第二个是右上角的退出按钮对应的信号
-        sigquit.async_wait([&ioc, &pool](auto, auto) { //两个auto对应两个信号
-            ioc.stop();
-            pool.Stop();
-        });
+                sigquit.async_wait([&ioc, &pool](auto, auto) { //两个auto对应两个信号
+                    ioc.stop();
+                    pool.Stop();
+                });
 
-        CServer server(ioc, PORT);
-        ioc.run();
+                CServer server(ioc, PORT);
+                ioc.run();
+                flag = false;
 
-    } catch (std::exception& e) {
-        std::cerr << "Server init false :" << e.what() << std::endl;
+            } catch (std::exception& e) {
+                std::cerr << "Server init false :" << e.what() << std::endl;
+            }
+        }
+        //Log as Client
+        else if (role == "NO" || role == "no" || role == "No") {
+            std::string serverip;
+            std::cout << "Please enter the server ipaddress(v4) you want to link with";
+            std::getline(std::cin, serverip);
+
+            //尝试连接Server
+            boost::asio::io_context ioc1;
+            tcp::endpoint remote_ep(address::from_string(serverip), PORT);
+            tcp::socket sock(ioc1);
+            boost::system::error_code error = boost::asio::error::host_not_found;
+            ;
+            sock.connect(remote_ep, error);
+            if (error) {
+                std::cerr << "connect failed, code is " << error.value() << " error msg is "
+                          << error.message() << std::endl
+                          << "Enter anykey to try again." << std::endl;
+                getchar();
+                continue;
+            }
+
+            try {
+                boost::asio::io_context ioc;
+                boost::asio::signal_set sigquit(ioc, SIGINT, SIGTERM);
+                sigquit.async_wait([&ioc, &pool](auto, auto) {
+                    ioc.stop();
+                    //这里可以做强制退出后的资源处理
+                });
+                Client client(sock, PORT);
+                ioc.run();
+                flag = false;
+
+            } catch (std::exception& e) {
+                std::cerr << "Client init false :" << e.what() << std::endl;
+            }
+        }
+        //Input error
+        else {
+            std::cerr << "Invalid input! Enter anykey to try again." << std::endl;
+            getchar();
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "client.h"
 #include "defines.h"
 #include "logicsystem.h"
 #include "msgnode.h"
@@ -15,9 +16,11 @@ class CSession : public std::enable_shared_from_this<CSession>
     friend class MegNode;
     friend class RecevNode;
     friend class LogicSystem;
+    friend class Client;
 
 public:
     CSession(boost::asio::io_context& io_context, CServer* server);
+    CSession(boost::asio::io_context& io_context, Client* client);
     boost::asio::ip::tcp::socket& GetSocket();
     std::string& GetUuid();
     void Start();
@@ -25,6 +28,8 @@ public:
     void SocketClose();
     std::shared_ptr<CSession> SharedSelf();
     short GetFileId();
+
+    void Close();
 
 private:
     void HandleReadHead(const boost::system::error_code& error,

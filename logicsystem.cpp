@@ -309,6 +309,7 @@ void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const s
     filetosend.m_FileUploadStream.close();
     //发送完后需要再接收一个Server确认文件完整的包。在获得确认完整后再在Client的File队列中删除该File
     Json::Value Finish;
+    Finish["FileId"] = fileid;
     Finish["Filefinish"] = 1;
     std::string target1 = Finish.toStyledString();
     session->Send(target1->data(), target1->size(), FileFinish);
@@ -333,3 +334,48 @@ void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const s
 
     FileManagement::GetInstance()->AddPacket(session->GetUuid(), fileid, seq, filadata);
 }
+
+//Client->Server.   Server收到Client端发送完毕的消息。
+//收：FileFinish
+//发：TellLostBag  or  FileComplete
+void LogicSystem::HandleFinalBag(std::shared_ptr<CSession> session, const std::string &msg_data)
+{
+    //tocheck
+    //接受数据
+    Json::Reader reader;
+    Json::Value root;
+    if (!reader.parse(msg_data, root)) {
+        std::cerr << "JSON parse error" << std::endl;
+        return;
+    }
+    short fileid = root["FileId"].asInt();
+    // bool finish = root["Filefinish"].asBool();//没用的数据
+
+    bool flag = FileManagement::GetInstance()->findFile(session, fileid)->CheckMissingPackets();
+    if (flag) {
+        std::vector<unsigned int> *MissingSeqs
+            = FileManagement::GetInstance()->findFile(session, fileid)->GetMissingSeqs();
+        std::string bagnums;
+        for (int i = 0; i < MissingSeqs.size(); ++i) {
+            bagnums = bagnums + std::to_string(MissingSeqs[i]) + ",";
+        }
+        bagnums.pop_back(); //去除最后一个无效","
+
+        Json::Value Msg;
+        Msg["Fileid"] = fileid;
+        Msg["MissingBags"] = bagnums;
+        std::string target = Msg.toStyledString();
+
+        session->Send(target.data(), target.size(), TellLostBag);
+    } else {
+        Json::Value Msg;
+        Msg["Missing"] = 0;
+        std::string target = Msg.toStyledString();
+
+        session->Send(target.data(), target.size(), FileComplete);
+    }
+}
+
+//Server->Client    Client需要重发缺包
+
+//Server->Client    Client处理文件传输完成后的资源回收File

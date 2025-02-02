@@ -1,5 +1,6 @@
 #include "file.h"
 
+//这是接收文件的函数
 FileToReceve::FileToReceve(short fileid,
                            std::string sessionUuid,
                            std::string filename,
@@ -12,6 +13,7 @@ FileToReceve::FileToReceve(short fileid,
     , m_FileSize(filesize)
     , m_FileTotalPackets(filenum)
     , m_FileHash(filehash)
+    , m_NextExpectedSeq(0)
 {}
 
 void FileToReceve::FlushToDisk()
@@ -41,6 +43,7 @@ void FileToReceve::FlushToDisk()
     }
 }
 
+//在滑动窗口中检测缺包
 void FileToReceve::CheckMissingPackets()
 {
     //tocheck
@@ -64,6 +67,27 @@ void FileToReceve::CheckMissingPackets()
     // }
 }
 
+bool FileToReceve::CheckMissingPacketsInAll()
+{
+    for (int i = 0; i < m_FileTotalPackets; ++i) {
+        // 检查位标记
+        if (!m_ReceivedFlags.test(i)) {
+            m_MissingSeqs.push_back(i);
+        }
+    }
+
+    if (m_MissingSeqs.size() != 0)
+        return true;
+    else
+        return false;
+}
+
+std::vector<unsigned int> *FileToReceve::GetMissingSeqs()
+{
+    return &m_MissingSeqs;
+}
+
+//之后的函数是Client端发送文件的函数
 FileToSend::FileToSend(std::string filename,
                        unsigned int filesize,
                        int filetotalpackets,

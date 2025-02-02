@@ -36,9 +36,10 @@ enum MSG_IDS {
     Test = 1001,
     FileFirstBag = 2001, //Client端发出--发起传输文件的请求
     ReturnFileId = 2002, //Server端发出--接受传输文件的请求
-    FileDataBag = 2003,  //Client端发出--发送的文件数据包
-    FileFinalBag = 2004, //Client端发出--发送的文件最后数据包
+    FileDataBag = 2003,  //Client端发出--发送文件的   数据包
+    FileFinalBag = 2004, //Client端发出--发送文件的最后数据包
     FileFinish = 2005,   //Client端发出--发送文件完毕
     TellLostBag = 2006,  //Server端发出--告知丢包
-    FileLostBag = 2007   //Client端发出--发送丢失的包
+    FileLostBag = 2007,  //Client端发出--发送丢失的包
+    FileComplete = 2008  //Server端发出--告知文件完整
 };

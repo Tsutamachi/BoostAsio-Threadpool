@@ -15,15 +15,15 @@
 #include <json/value.h>
 #include <sstream>
 
-using boost::asio::awaitable;
-using boost::asio::co_spawn;
-using boost::asio::detached;
-using boost::asio::use_awaitable;
+// using boost::asio::awaitable;
+// using boost::asio::co_spawn;
+// using boost::asio::detached;
+// using boost::asio::use_awaitable;
 
 CSession::CSession(boost::asio::io_context &io_context, CServer *server)
     : m_Socket(io_context)
-    , m_IoContext(io_context)
-    , m_Server(server)
+    , m_IoContext(io_context) //下文并未提及
+    , m_Server(server)        //只起到关闭的作用
     , _close(false)
 {
     boost::uuids::uuid am_Uuid = boost::uuids::random_generator()();
@@ -33,6 +33,12 @@ CSession::CSession(boost::asio::io_context &io_context, CServer *server)
         m_FileIds[i] = true;
     }
 }
+
+CSession::CSession(boost::asio::ip::tcp::socket &socket, Client *client)
+    : m_Socket(socket)
+    , m_Client(client)
+    , _close(false)
+{}
 
 boost::asio::ip::tcp::socket &CSession::GetSocket()
 {

@@ -25,28 +25,35 @@ public:
     // 写入文件（按序处理）
     void FlushToDisk();
 
-    void CheckMissingPackets();
+    bool CheckMissingPackets(); //滑动窗口多次检查缺包
 
-    // 校验哈希
-    bool ValidateHash(const std::string& client_hash);
+    bool CheckMissingPacketsInAll(); //一次总检查缺包
+
+    std::vector<unsigned int>* GetMissingSeqs(); //一次总检查缺包
 
 private:
+    //文件信息
     std::string m_SessionUuid; //所属Session的Uuid
     short m_FileId;            //文件在该Session中的Id
     std::string m_FileName;    //文件名（UTF-8的256字节限定）
     unsigned int m_FileSize;   //文件总长度2**32
     unsigned int m_FileTotalPackets; //文件总包数
+    std::string m_FileHash;          //文件验证哈希值
 
+    //缺包检测
     static constexpr int WINDOW_SIZE = 1024;                 //滑动窗口的大小
     std::array<std::vector<char>, WINDOW_SIZE> m_DataBuffer; //滑动窗口
-    std::bitset<WINDOW_SIZE> m_ReceivedFlags; //用来记录哪些窗口已经被载入 set1 resert0
-    unsigned int m_NextExpectedSeq;           // 下一个期待的包序号
+    std::bitset<WINDOW_SIZE> m_ReceivedFlags; //用来记录哪些窗口已经被载入--滑动窗口中检测缺包
+    std::bitset<m_FileTotalPackets>
+        m_CheckAll; //用来记录包序号已经被载入--Client端上传结束后总体检测缺包
+    unsigned int m_NextExpectedSeq; // 下一个期待的包序号--其左为已确认收到，右为还未确认收到
+    std::vector<unsigned int> m_MissingSeqs;  //记录缺包的序号
 
-    // std::ofstream m_FileSaveStream; // 接收文件
+    //文件持久化操作
+    std::ofstream m_FileSaveStream; // 接收文件
     // std::ifstream m_FileUploadStream; //发送文件
     std::mutex m_Mutex;             // 缓冲区操作锁
     std::condition_variable m_CV;   // 条件变量
-    std::string m_FileHash;         //文件验证哈希值
 };
 
 //用于发送的File
