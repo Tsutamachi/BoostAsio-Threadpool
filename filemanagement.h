@@ -4,6 +4,7 @@
 #include <memory>
 #include <unordered_map>
 
+class File;
 class FileManagement : public Singleton<FileManagement>
 {
     friend class Singleton<FileManagement>;
@@ -23,9 +24,9 @@ public:
                    unsigned int seq,
                    const std::vector<char>& data);
 
-    bool AddFile(const std::string& session_uuid, short file_id, std::unique_ptr<File> file);
+    bool AddFile(const std::string& session_uuid, short file_id, std::unique_ptr<FileToReceve> file);
 
-    File* findFile(const std::string& session_uuid, short file_id);
+    FileToReceve* findFile(const std::string& session_uuid, short file_id);
 
     bool removeFile(const std::string& session_uuid, short file_id);
 

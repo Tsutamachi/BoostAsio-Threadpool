@@ -52,13 +52,78 @@ void LogicSystem::DealMsg()
         if (m_stop) {
             while (!m_MegQue.empty()) {
                 auto meg_node = m_MegQue.front();
-                std::cout << "RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId << std::endl;
+                // std::cout << std::endl
+                //           << "RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId << std::endl;
 
-                auto call_back_iter = m_FunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
+                if (meg_node->m_Session->m_Role == CSession::Role::Client) {
+                    auto call_back_iter = m_ClientFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
+                    if (call_back_iter
+                        == m_ClientFunCallBacks
+                               .end()) { //在所有注册的回调函数中，没有与当前消息对应的回调函数，即当前MsgId违法
+                        m_MegQue.pop();
+                        std::cout << "No compared CallBackFunction to handle this bag!"
+                                  << std::endl;
+                        continue;
+                    }
+
+                    //second函数是在调用call_back_iter对应的回调函数，括号内是回调函数的参数
+                    call_back_iter->second(meg_node->m_Session,
+                                           std::string(meg_node->m_RecevNode->m_Data,
+                                                       meg_node->m_RecevNode
+                                                           ->m_TotalLen)); //深度拷贝RecevNode中的Data
+                    m_MegQue.pop();
+                } else {
+                    auto call_back_iter = m_ServerFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
+                    if (call_back_iter
+                        == m_ServerFunCallBacks
+                               .end()) { //在所有注册的回调函数中，没有与当前消息对应的回调函数，即当前MsgId违法
+                        m_MegQue.pop();
+                        std::cout << "No compared CallBackFunction to handle this bag!"
+                                  << std::endl;
+                        continue;
+                    }
+
+                    //second函数是在调用call_back_iter对应的回调函数，括号内是回调函数的参数
+                    call_back_iter->second(meg_node->m_Session,
+                                           std::string(meg_node->m_RecevNode->m_Data,
+                                                       meg_node->m_RecevNode
+                                                           ->m_TotalLen)); //深度拷贝RecevNode中的Data
+                    m_MegQue.pop();
+                }
+            }
+            break;
+        }
+
+        // //正在传输
+        // auto meg_node = m_MegQue.front();
+        // std::cout << "RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId << std::endl;
+
+        // auto call_back_iter = m_FunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
+        // if (call_back_iter
+        //     == m_FunCallBacks
+        //            .end()) { //在所有注册的回调函数中，没有与当前消息对应的回调函数，即当前MsgId违法
+        //     m_MegQue.pop();
+        //     continue;
+        // }
+
+        // //second函数是在调用call_back_iter对应的回调函数，括号内是回调函数的参数
+        // call_back_iter
+        //     ->second(meg_node->m_Session,
+        //              // meg_node->m_RecevNode->m_MsgId,
+        //              std::string(meg_node->m_RecevNode->m_Data,
+        //                          meg_node->m_RecevNode->m_TotalLen)); //深度拷贝RecevNode中的Data
+        // m_MegQue.pop();
+        {
+            auto meg_node = m_MegQue.front();
+            // std::cout << "RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId << std::endl;
+
+            if (meg_node->m_Session->m_Role == CSession::Role::Client) {
+                auto call_back_iter = m_ClientFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
                 if (call_back_iter
-                    == m_FunCallBacks
+                    == m_ClientFunCallBacks
                            .end()) { //在所有注册的回调函数中，没有与当前消息对应的回调函数，即当前MsgId违法
                     m_MegQue.pop();
+                    std::cout << "No compared CallBackFunction to handle this bag!" << std::endl;
                     continue;
                 }
 
@@ -66,53 +131,100 @@ void LogicSystem::DealMsg()
                 call_back_iter->second(meg_node->m_Session,
                                        std::string(meg_node->m_RecevNode->m_Data,
                                                    meg_node->m_RecevNode
-                                                       ->m_CurLen)); //深度拷贝RecevNode中的Data
+                                                       ->m_TotalLen)); //深度拷贝RecevNode中的Data
+                m_MegQue.pop();
+            } else {
+                auto call_back_iter = m_ServerFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
+                if (call_back_iter
+                    == m_ServerFunCallBacks
+                           .end()) { //在所有注册的回调函数中，没有与当前消息对应的回调函数，即当前MsgId违法
+                    m_MegQue.pop();
+                    std::cout << "No compared CallBackFunction to handle this bag!" << std::endl;
+                    continue;
+                }
+
+                //second函数是在调用call_back_iter对应的回调函数，括号内是回调函数的参数
+                call_back_iter->second(meg_node->m_Session,
+                                       std::string(meg_node->m_RecevNode->m_Data,
+                                                   meg_node->m_RecevNode
+                                                       ->m_TotalLen)); //深度拷贝RecevNode中的Data
                 m_MegQue.pop();
             }
-            break;
         }
-
-        //正在传输
-        auto meg_node = m_MegQue.front();
-        std::cout << "RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId << std::endl;
-
-        auto call_back_iter = m_FunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
-        if (call_back_iter
-            == m_FunCallBacks
-                   .end()) { //在所有注册的回调函数中，没有与当前消息对应的回调函数，即当前MsgId违法
-            m_MegQue.pop();
-            continue;
-        }
-
-        //second函数是在调用call_back_iter对应的回调函数，括号内是回调函数的参数
-        call_back_iter
-            ->second(meg_node->m_Session,
-                     // meg_node->m_RecevNode->m_MsgId,
-                     std::string(meg_node->m_RecevNode->m_Data,
-                                 meg_node->m_RecevNode->m_CurLen)); //深度拷贝RecevNode中的Data
-        m_MegQue.pop();
     }
 }
 
 void LogicSystem::RegisterCallBacks()
 {
     //后续可拓展消息id对应的回调函数
-    m_FunCallBacks[Test] = std::bind(&LogicSystem::HandleTest,
-                                     this,
-                                     std::placeholders::_1,
-                                     std::placeholders::_2);
-    m_FunCallBacks[FileFirstBag] = std::bind(&LogicSystem::HandleReadFirstFileBag,
-                                             this,
-                                             std::placeholders::_1,
-                                             std::placeholders::_2);
+
+    m_ClientFunCallBacks[Test] = std::bind(&LogicSystem::ClientSendTest,
+                                           this,
+                                           std::placeholders::_1,
+                                           std::placeholders::_2);
+
+    m_ServerFunCallBacks[Echo] = std::bind(&LogicSystem::ServerSendTest,
+                                           this,
+                                           std::placeholders::_1,
+                                           std::placeholders::_2);
+    m_ClientFunCallBacks[Back] = std::bind(&LogicSystem::ClientReturn,
+                                           this,
+                                           std::placeholders::_1,
+                                           std::placeholders::_2);
+
+    m_ClientFunCallBacks[FileUploadRequest] = std::bind(&LogicSystem::RequestUpload,
+                                                        this,
+                                                        std::placeholders::_1,
+                                                        std::placeholders::_2);
+
+    m_ClientFunCallBacks[RejectUpload] = std::bind(&LogicSystem::HandleRejectUpload,
+                                                   this,
+                                                   std::placeholders::_1,
+                                                   std::placeholders::_2);
+
+    m_ServerFunCallBacks[RequestFileId] = std::bind(&LogicSystem::HandleUploadRequest,
+                                                    this,
+                                                    std::placeholders::_1,
+                                                    std::placeholders::_2);
+
+    m_ClientFunCallBacks[StartUpload] = std::bind(&LogicSystem::HandleFileUpload,
+                                                  this,
+                                                  std::placeholders::_1,
+                                                  std::placeholders::_2);
+
+    m_ServerFunCallBacks[FileDataBag] = std::bind(&LogicSystem::HandleData,
+                                                  this,
+                                                  std::placeholders::_1,
+                                                  std::placeholders::_2);
+
+    m_ServerFunCallBacks[FileFinish] = std::bind(&LogicSystem::HandleFinalBag,
+                                                 this,
+                                                 std::placeholders::_1,
+                                                 std::placeholders::_2);
+
+    //双端通用函数RequestDownload需不需要单独设立一个FunCallBacks?
+    m_ClientFunCallBacks[FileDownloadRequest] = std::bind(&LogicSystem::RequestDownload,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2);
+    m_ServerFunCallBacks[FileDownloadRequest] = std::bind(&LogicSystem::RequestDownload,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2);
 }
 
 //Server只提供下载请求（Server1->Server2），Client只提供上传请求(Client->Server)
 
-//Client->Server.   Server接受test
-//发：Test
-//收：Test
-void LogicSystem::HandleTest(std::shared_ptr<CSession> session, const std::string &msg_data)
+//Client函数   Client端发出Test
+//收: Test
+//发：Echo
+void LogicSystem::ClientSendTest(std::shared_ptr<CSession> session, const std::string &msg_data)
+{ //echo模式，回显回到Client端
+    session->Send(msg_data.data(), msg_data.size(), Echo);
+}
+
+//Server函数
+void LogicSystem::ServerSendTest(std::shared_ptr<CSession> session, const std::string &msg_data)
 { //echo模式，回显回到Client端
     Json::Reader reader;
     Json::Value root;
@@ -124,21 +236,35 @@ void LogicSystem::HandleTest(std::shared_ptr<CSession> session, const std::strin
         << "         msg data is " << root["data"].asString() << std::endl;
 
     std::string return_str = root.toStyledString();
-    session->Send(return_str.data(), return_str.size(), (short) root["id"].asInt());
+    session->Send(return_str.data(), return_str.size(), Back);
 }
 
-//Client->Server.   Client端提出上传请求--隶属于Client应用层用于提出功能请求--与Client对象相关的部分可能有错误
-//发：FileFirstBag
-//收：ReturnFileId
+//Client函数      Client端的回显测试
+//收：Eco
+void LogicSystem::ClientReturn(std::shared_ptr<CSession> session, const std::string &msg_data)
+{
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(msg_data,
+                 root); //因为这里传入的参数是string,所以不需要通过buffer首地址和长度来构造string
+
+    std::cout << "recevied msg id   is " << root["id"].asInt() << std::endl
+              << "         msg data is " << root["data"].asString() << std::endl;
+}
+
+//Client函数      Client端提出上传请求
+//收：FileUploadRequest
+//发：RequestFileId
 void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
-    //生成文件，并初始化一个FileToSend对象（受Client对象管理）用于后续传送文件包
-    std::string filepath;
-    std::cout << "Please enter the path of file you want to upload: ";
-    std::getline(std::cin, filepath);
+    //读取路径
+    Json::Reader reader;
+    Json::Value Msg;
+    reader.parse(msg_data, Msg);
+    std::string filepath = Msg["filepath"].asString();
 
     //获取文件的Hash值用于Server验证文件是否传输成功
-    std::string filehash = HashMD5::CalculateFileHash(filepath);
+    std::string filehash = CalculateFileHash(filepath);
 
     //先定位到文末，计算大小，再重置到文初
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
@@ -146,7 +272,7 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         throw std::runtime_error("Client open file failed: " + filepath);
     }
 
-    //获取文件名 而非路径
+    //获取文件名
     std::filesystem::path pathObj(filepath);
     std::string filename = pathObj.filename().string();
 
@@ -157,13 +283,12 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
     //计算总包数
     unsigned int total_packets = (file_size + FILE_DATA_LEN - 1) / FILE_DATA_LEN;
 
-    Client.m_TempFile = std::make_unique<FileToSend>(filename,
-                                                     file_size,
-                                                     total_packets,
-                                                     filehash,
-                                                     std::move(file));
-
-    // short msg_id = boost::asio::detail::socket_ops::host_to_network_short(FileFirstBag);
+    session->GetClientOwner()->m_TempFile = std::make_unique<FileToSend>(filepath,
+                                                                         filename,
+                                                                         file_size,
+                                                                         total_packets,
+                                                                         filehash,
+                                                                         std::move(file));
 
     //构造要传给Server的数据
     Json::Value root;
@@ -173,6 +298,7 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
     root["FileHash"] = filehash;
     std::string target = root.toStyledString();
 
+    // short msg_id = boost::asio::detail::socket_ops::host_to_network_short(FileUploadRequest);
     // short msg_len = boost::asio::detail::socket_ops::host_to_network_shor(target.size());
 
     // auto packet = std::make_shared<std::vector<char>>(len); //为什么这里使用共享指针？
@@ -191,14 +317,17 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
     //                                    std::placeholders::_1,
     //                                    std::placeholders::_2,
     //                                    SharedSelf()));
-    session->Send(target.data(), target.size(), FileFirstBag);
+    session->Send(target.data(), target.size(), RequestFileId);
 }
 
-//Client->Server.   Server处理Client发出的上传请求
-//收：FileFirstBag
-//发：ReturnFileId
-void LogicSystem::HandleReadFirstFileBag(std::shared_ptr<CSession> session,
-                                         const std::string &msg_data)
+//Client、RecevServer函数   提出下载请求
+//发：FileDownRequest
+void LogicSystem::RequestDownload(std::shared_ptr<CSession> session, const std::string &msg_data) {}
+
+//Server函数      处理上传请求
+//收：RequestFileId
+//发：StartUpload（true）        RejectUpload（flase）
+void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
     //读取获得的文件信息
     Json::Reader reader;
@@ -208,17 +337,25 @@ void LogicSystem::HandleReadFirstFileBag(std::shared_ptr<CSession> session,
     unsigned int filesize = root["FileSize"].asUInt();
     unsigned int filenum = root["TotalPacketsNum"].asUInt(); //总的包数
     std::string filehash = root["FileHash"].asString();
-    std::cout << "File Name:\t" << filename << std::endl
+    std::cout << std::endl
+              << "File Name:\t" << filename << std::endl
               << "File Size:\t" << filesize << std::endl
               << "Packet Num:\t" << filenum << std::endl;
 
     //由Session分配一个FileId
     short fileid = session->GetFileId(); //从0开始到4
-
     //创建File对象用于接收文件数据包和持久化文件
     if (!(fileid + 1)) {
         std::cout << "File upload num is full. Client can only upload 5 files in the same time!"
                   << std::endl;
+        //回包拒绝
+        Json::Value Reject;
+        Reject["reject"] = 1;
+        std::string target = Reject.toStyledString();
+
+        session->Send(target.data(), target.length(), RejectUpload);
+        return;
+
     } else {
         std::unique_ptr<FileToReceve> file = std::make_unique<FileToReceve>(fileid,
                                                                             session->GetUuid(),
@@ -243,13 +380,22 @@ void LogicSystem::HandleReadFirstFileBag(std::shared_ptr<CSession> session,
 
     // memcpy(send_data + HEAD_TOTAL_LEN, request.data(), request_length);
 
-    session->Send(request.data(), request.length(), FileFirstBag);
+    session->Send(request.data(), request.length(), StartUpload);
 }
 
-//Server->Client.   Client接受Server返回的上传响应--开始上传数据--最后投递到发送队列的部分可能有错误
-//收：ReturnFileId
+//Client函数      处理被拒绝的上传
+//收：RejectUpload
+void LogicSystem::HandleRejectUpload(std::shared_ptr<CSession> session, const std::string &msg_data)
+{
+    //关闭文件❌->文件还没创建
+    std::cout << "File upload num is full. Client can only upload 5 files in the same time!"
+              << std::endl;
+}
+
+//Client函数   Client接受Server返回的上传响应--开始上传数据--最后投递到发送队列的部分可能有错误
+//收：StartUpload
 //发：FileDataBag  、FileFinish
-void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const std::string &msg_data)
+void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
     //接受数据FileId
     Json::Reader reader;
@@ -259,29 +405,32 @@ void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const s
         return;
     }
 
-    short fileid = root["FileId"].asShort(); // 使用 asInt() 替代 asShort()
+    short fileid = static_cast<short>(root["FileId"].asInt());
     if (fileid < 0) {
         std::cerr << "FileId invalid!" << std::endl;
         return;
     }
 
-    Client.m_TempFile->SetFileId(fileid);
-    Client.AddFileToSend(Client.m_TempFile);
+    session->GetClientOwner()->m_TempFile->SetFileId(fileid);
+    session->GetClientOwner()->AddFileToSend(std::move(session->GetClientOwner()->m_TempFile),
+                                             fileid);
 
-    FileToSend filetosend = Client.FindFileToSend(fileid);
+    //这里能用一个指针代替吗
+    std::unique_ptr<FileToSend> &filetosend = session->GetClientOwner()->FindFileToSend(fileid);
 
-    // std::vector<char> dataBuffer(FILE_DATA_LEN);
+    std::vector<char> dataBuffer(FILE_DATA_LEN);
     unsigned int seq = 0;
 
-    while (filetosend.m_FileUploadStream.read(dataBuffer.data(), FILE_DATA_LEN)) {
-        size_t bytes_read = filetosend.m_FileUploadStream.gcount();
+    while (filetosend->m_FileUploadStream.read(reinterpret_cast<char *>(dataBuffer.data()),
+                                               FILE_DATA_LEN)) {
+        size_t bytes_read = filetosend->m_FileUploadStream.gcount();
 
         // 构造 JSON 数据
         Json::Value Msg;
         Msg["FileId"] = fileid;
         Msg["Sequence"] = static_cast<Json::UInt>(seq);
         // Base64 编码(利用openssl/BoostAsio库中函数自己实现编码).Json不能传送二进制文件，只能传文本
-        Msg["Data"] = Base64_Code::base64_encode(dataBuffer.data(), bytes_read);
+        Msg["Data"] = base64_encode(dataBuffer.data(), bytes_read);
 
         std::string target = Msg.toStyledString();
         if (target.size() > std::numeric_limits<short>::max()) { //max为32767
@@ -303,21 +452,23 @@ void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const s
         // memcpy(packet->data() + offset, target.data(), target.size());
 
         // 加入发送队列
-        session->Send(target->data(), target->size(), FileDataBag);
+        session->Send(target.data(), target.size(), FileDataBag);
         seq++;
+        dataBuffer.clear();
     }
-    filetosend.m_FileUploadStream.close();
+    filetosend->m_FileUploadStream.close();
     //发送完后需要再接收一个Server确认文件完整的包。在获得确认完整后再在Client的File队列中删除该File
     Json::Value Finish;
     Finish["FileId"] = fileid;
     Finish["Filefinish"] = 1;
     std::string target1 = Finish.toStyledString();
-    session->Send(target1->data(), target1->size(), FileFinish);
+    session->Send(target1.data(), target1.size(), FileFinish);
+    //如果时间内Server没有收到FileFinish,要重发这个包
 }
 
-//Client->Server.   Server接受数据
+//Server函数   Server接受数据
 //收：FileDataBag
-void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const std::string &msg_data)
+void LogicSystem::HandleData(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
     //接受数据FileId
     Json::Reader reader;
@@ -327,20 +478,20 @@ void LogicSystem::HandleReturnFirstId(std::shared_ptr<CSession> session, const s
         return;
     }
 
-    short fileid = root["FileId"].asInt();
+    short fileid = static_cast<short>(root["FileId"].asInt());
     unsigned int seq = root["Sequence"].asUInt();
     std::string data = root["Data"].asString();
-    std::vector<char> filedata = Base64_Code::base64_decode(data); //二进制文件
+    std::vector<char> filedata = base64_decode(data); //二进制文件
 
-    FileManagement::GetInstance()->AddPacket(session->GetUuid(), fileid, seq, filadata);
+    FileManagement::GetInstance()->AddPacket(session->GetUuid(), fileid, seq, filedata);
 }
 
-//Client->Server.   Server收到Client端发送完毕的消息。
+//Server函数   Server收到Client端发送完毕的消息。
 //收：FileFinish
 //发：TellLostBag  or  FileComplete
 void LogicSystem::HandleFinalBag(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
-    //tocheck
+    //需要检验缺包
     //接受数据
     Json::Reader reader;
     Json::Value root;
@@ -348,18 +499,26 @@ void LogicSystem::HandleFinalBag(std::shared_ptr<CSession> session, const std::s
         std::cerr << "JSON parse error" << std::endl;
         return;
     }
-    short fileid = root["FileId"].asInt();
+    short fileid = static_cast<short>(root["FileId"].asInt());
     // bool finish = root["Filefinish"].asBool();//没用的数据
 
-    bool flag = FileManagement::GetInstance()->findFile(session, fileid)->CheckMissingPackets();
+    bool flag
+        = FileManagement::GetInstance()->findFile(session->GetUuid(), fileid)->CheckMissingPackets();
     if (flag) {
-        std::vector<unsigned int> *MissingSeqs
-            = FileManagement::GetInstance()->findFile(session, fileid)->GetMissingSeqs();
+        //这里检测缺包
+        /*std::vector<long> *MissingSeqs
+            = FileManagement::GetInstance()->findFile(session->GetUuid(), fileid)->GetMissingSeqs();*/
+        std::vector<unsigned int> *MissingSeqs = FileManagement::GetInstance()
+                                                     ->findFile(session->GetUuid(), fileid)
+                                                     ->GetMissingSeqs(); // 统一类型
+
         std::string bagnums;
-        for (int i = 0; i < MissingSeqs.size(); ++i) {
-            bagnums = bagnums + std::to_string(MissingSeqs[i]) + ",";
+        for (size_t i = 0; i < MissingSeqs->size(); ++i) {
+            bagnums.append(std::to_string((*MissingSeqs)[i])); // 正确解引用指针并访问元素
+            if (i < MissingSeqs->size() - 1) {
+                bagnums.append(",");
+            }
         }
-        bagnums.pop_back(); //去除最后一个无效","
 
         Json::Value Msg;
         Msg["Fileid"] = fileid;
@@ -368,11 +527,20 @@ void LogicSystem::HandleFinalBag(std::shared_ptr<CSession> session, const std::s
 
         session->Send(target.data(), target.size(), TellLostBag);
     } else {
-        Json::Value Msg;
-        Msg["Missing"] = 0;
-        std::string target = Msg.toStyledString();
+        //没有缺包，hashMD5检测完整性
+        bool complete = VerifyFileHash(
+            //FileSavePath后期需要改正
+            FileManagement::GetInstance()->findFile(session->GetUuid(), fileid)->m_FileSavePath,
+            FileManagement::GetInstance()->findFile(session->GetUuid(), fileid)->m_FileHash);
+        if (complete) {
+            Json::Value Msg;
+            Msg["Missing"] = 0;
+            std::string target = Msg.toStyledString();
 
-        session->Send(target.data(), target.size(), FileComplete);
+            session->Send(target.data(), target.size(), FileComplete);
+        } else {
+            //这里做不完整的处理--重发文件？
+        }
     }
 }
 

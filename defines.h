@@ -1,6 +1,7 @@
 #pragma once
 //Server监听端口
 #define PORT 10086
+#define DataPlace "/root/DataPlace/"
 
 //包头结构：
 // MegId-Datalen
@@ -29,17 +30,23 @@
 #define MAX_UPLOAD_NUM 5
 
 //Lock
-#define MAX_SENDQUE 1000 //发送队列的最大长度
+#define MAX_SENDQUE 10000 //发送队列的最大长度
 
 //MessageId     前1000一般留给系统级的消息，其余的留给业务级
 enum MSG_IDS {
     Test = 1001,
-    FileFirstBag = 2001, //Client端发出--发起传输文件的请求
-    ReturnFileId = 2002, //Server端发出--接受传输文件的请求
-    FileDataBag = 2003,  //Client端发出--发送文件的   数据包
-    FileFinalBag = 2004, //Client端发出--发送文件的最后数据包
-    FileFinish = 2005,   //Client端发出--发送文件完毕
-    TellLostBag = 2006,  //Server端发出--告知丢包
-    FileLostBag = 2007,  //Client端发出--发送丢失的包
-    FileComplete = 2008  //Server端发出--告知文件完整
+    Echo = 1002,
+    Back = 1003,
+    FileUploadRequest = 2001, //Client应用层->Client处理层--发起传输文件的请求
+    FileDownloadRequest = 2010, //Client、Server（接受文件端）应用层->处理层--发起下载文件的请求
+    RequestFileId = 2011, //Client->Server--希望获取一个FileId
+    ReturnFileId = 2002,  //Server->Client--接受传输文件的请求
+    RejectUpload = 2009,  //Server->Client--没有FileId能够分配，拒绝上传
+    StartUpload = 2012,   //Client开始发送数据
+    FileDataBag = 2003,   //Client->Server--发送文件的   数据包
+    FileFinalBag = 2004,  //Client->Server--发送文件的最后数据包
+    FileFinish = 2005,    //Client->Server--发送文件完毕
+    TellLostBag = 2006,   //Server端发出--告知丢包
+    FileLostBag = 2007,   //Client->Server--发送丢失的包
+    FileComplete = 2008   //Server端发出--告知文件完整
 };

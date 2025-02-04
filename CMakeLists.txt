@@ -2,24 +2,41 @@ cmake_minimum_required(VERSION 3.27)
 
 project(MyJsonServer LANGUAGES CXX)
 
-add_executable(MyJsonServer main.cpp cserver.h cserver.cpp
-    defines.h
-    csession.h csession.cpp
-    msgnode.h msgnode.cpp
-    Singleton.h
-    logicsystem.h logicsystem.cpp
-    logicnode.h logicnode.cpp
-    servicepool.h servicepool.cpp
-    file.h file.cpp
-    filemanagement.h filemanagement.cpp
-    hashmd5.h hashmd5.cpp
-    client.h client.cpp
-    base64_code.h base64_code.cpp)
+add_executable(
+  MyJsonServer
+  main.cpp
+  cserver.h
+  cserver.cpp
+  defines.h
+  csession.h
+  csession.cpp
+  msgnode.h
+  msgnode.cpp
+  Singleton.h
+  logicsystem.h
+  logicsystem.cpp
+  logicnode.h
+  logicnode.cpp
+  servicepool.h
+  servicepool.cpp
+  file.h
+  file.cpp
+  filemanagement.h
+  filemanagement.cpp
+  hashmd5.h
+  hashmd5.cpp
+  client.h
+  client.cpp
+  base64_code.h
+  base64_code.cpp)
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 
 target_include_directories(MyJsonServer PRIVATE /usr/include/jsoncpp)
 target_link_libraries(MyJsonServer PRIVATE /usr/lib/libjsoncpp.so)
+
+find_package(OpenSSL REQUIRED)
+target_link_libraries(MyJsonServer PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 
 # include(GNUInstallDirs) install(TARGETS MyJsonServer LIBRARY DESTINATION
 # ${CMAKE_INSTALL_LIBDIR} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} )

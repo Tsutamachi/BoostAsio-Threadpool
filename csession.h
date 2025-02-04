@@ -10,6 +10,8 @@
 
 class CServer;
 class MsgNode;
+class Client;
+
 class CSession : public std::enable_shared_from_this<CSession>
 {
     friend class CServer;
@@ -20,7 +22,10 @@ class CSession : public std::enable_shared_from_this<CSession>
 
 public:
     enum class Role { Server, Client };
-    CSession(boost::asio::io_context& io_context, void* owner, Role role);
+    CSession(boost::asio::io_context& io_context,
+             void* owner,
+             Role role,
+             boost::asio::ip::tcp::socket&& socket);
     boost::asio::ip::tcp::socket& GetSocket();
     std::string& GetUuid();
     void Start();
@@ -28,6 +33,8 @@ public:
     void SocketClose();
     std::shared_ptr<CSession> SharedSelf();
     short GetFileId();
+
+    void Close();
     CServer* GetServerOwner() const
     {
         return (m_Role == Role::Server) ? static_cast<CServer*>(m_Owner) : nullptr;
@@ -38,7 +45,7 @@ public:
         return (m_Role == Role::Client) ? static_cast<Client*>(m_Owner) : nullptr;
     }
 
-    void Close();
+    Role GetRole() const { return (m_Role == Role::Client) ? Role::Client : Role::Server; }
 
 private:
     void HandleReadHead(const boost::system::error_code& error,
@@ -62,5 +69,5 @@ private:
     std::shared_ptr<MsgNode> m_RecevHeadNode;
     std::shared_ptr<RecevNode> m_RecevMsgNode;
     // std::array<bool, MAX_UPLOAD_NUM> m_FileIds;
-    bool m_FileIds[MAX_UPLOAD_NUM];
+    bool m_FileIds[MAX_UPLOAD_NUM]; //true代表可用，false代表正在被占用
 };

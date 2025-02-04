@@ -25,6 +25,7 @@ class RecevNode : public MsgNode
 public:
     RecevNode(short max_len, short msg_id, short sequence);
     RecevNode(short max_len, short msg_id);
+    ~RecevNode();
     short m_MsgId;
 };
 

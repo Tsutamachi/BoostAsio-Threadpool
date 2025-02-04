@@ -20,9 +20,11 @@ void CServer::ClearSession(std::string uuid)
 void CServer::StartAccept()
 {
     auto &iocontext = ServicePool::GetInstance().GetService();
+    boost::asio::ip::tcp::socket sock(iocontext);
     std::shared_ptr<CSession> new_session = std::make_shared<CSession>(iocontext,
                                                                        this,
-                                                                       CSession::Role::Server);
+                                                                       CSession::Role::Server,
+                                                                       std::move(sock));
     m_acceptor
         .async_accept(new_session->GetSocket(),
                       std::bind(&CServer::HandleAccept, this, new_session, std::placeholders::_1));

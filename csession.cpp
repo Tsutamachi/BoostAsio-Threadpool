@@ -20,38 +20,24 @@
 // using boost::asio::detached;
 // using boost::asio::use_awaitable;
 
-// CSession::CSession(boost::asio::io_context &io_context, CServer *server)
-//     : m_Socket(io_context)
-//     , m_IoContext(io_context) //下文并未提及
-//     , m_Server(server)        //只起到关闭的作用
-//     , _close(false)
-// {
-//     boost::uuids::uuid am_Uuid = boost::uuids::random_generator()();
-//     m_Uuid = boost::uuids::to_string(am_Uuid);
-//     m_RecevHeadNode = std::make_shared<MsgNode>(HEAD_TOTAL_LEN);
-//     for (short i = 0; i < MAX_UPLOAD_NUM; ++i) {
-//         m_FileIds[i] = true;
-//     }
-// }
-
-// CSession::CSession(boost::asio::ip::tcp::socket &socket, Client *client)
-//     : m_Socket(socket)
-//     , m_Client(client)
-//     , _close(false)
-// {}
 // 通用构造函数实现
-CSession::CSession(boost::asio::io_context &io_context, void *owner, Role role)
-    : m_Socket(io_context)
+CSession::CSession(boost::asio::io_context &io_context,
+                   void *owner,
+                   Role role,
+                   boost::asio::ip::tcp::socket &&socket)
+    : m_Socket(std::move(socket))
     , m_IoContext(io_context)
     , m_Owner(owner)
     , m_Role(role)
     , _close(false)
+
 {
     // 初始化 UUID 和 FileIds
     boost::uuids::uuid am_Uuid = boost::uuids::random_generator()();
     m_Uuid = boost::uuids::to_string(am_Uuid);
     m_RecevHeadNode = std::make_shared<MsgNode>(HEAD_TOTAL_LEN);
     std::memset(m_FileIds, true, sizeof(m_FileIds));
+    std::cout << "CSession Construct!" << std::endl;
 }
 
 boost::asio::ip::tcp::socket &CSession::GetSocket()
@@ -173,8 +159,8 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
                               std::shared_ptr<CSession> shared_self)
 {
     try {
-        if (error == boost::asio::error::eof) {
-            // 连接被对端关闭。
+        // 连接被对端关闭。
+        /*if (error == boost::asio::error::eof) {
             std::cerr << "Peer closed the connection." << std::endl;
             if (auto server = GetServerOwner()) {
                 server->ClearSession(m_Uuid); // Server 端清理
@@ -184,13 +170,15 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
             }
             //todo：这里要处理LogicSystem中在FileManagement里管理的Session下File资源？
             //没有return
-        } else if (error) {
-            //其他错误
+        }
+        //其他错误
+        else */
+        if (error) {
             if (auto server = GetServerOwner()) {
                 server->ClearSession(m_Uuid); // Server 端清理
                 SocketClose();
             } else if (auto client = GetClientOwner()) {
-                client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
+                client->HandleSessionClose(); // Client 端清理
             }
             std::cout << "ReadHead fails:" << error.what() << std::endl;
         }
@@ -245,12 +233,13 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         m_RecevMsgNode = std::make_shared<RecevNode>(msg_len, msg_id);
 
         std::memset(m_Data, 0, HEAD_TOTAL_LEN);
-        m_Socket.async_receive(boost::asio::buffer(m_Data, msg_len),
-                               std::bind(&CSession::HandleReadMeg,
-                                         this,
-                                         std::placeholders::_1,
-                                         std::placeholders::_2,
-                                         SharedSelf()));
+        boost::asio::async_read(m_Socket,
+                                boost::asio::buffer(m_Data, msg_len),
+                                std::bind(&CSession::HandleReadMeg,
+                                          this,
+                                          std::placeholders::_1,
+                                          std::placeholders::_2,
+                                          SharedSelf()));
     } catch (std::exception &e) {
         std::cerr << "HandleReadHead fails.Exception code is:" << e.what() << std::endl;
     }
@@ -280,12 +269,13 @@ void CSession::HandleReadMeg(const boost::system::error_code &error,
         std::memset(m_Data, 0, HEAD_TOTAL_LEN);
         // m_RecevMsgNode->Clear();
 
-        m_Socket.async_receive(boost::asio::buffer(m_Data, HEAD_TOTAL_LEN),
-                               std::bind(&CSession::HandleReadHead,
-                                         this,
-                                         std::placeholders::_1,
-                                         std::placeholders::_2,
-                                         SharedSelf()));
+        boost::asio::async_read(m_Socket,
+                                boost::asio::buffer(m_Data, HEAD_TOTAL_LEN),
+                                std::bind(&CSession::HandleReadHead,
+                                          this,
+                                          std::placeholders::_1,
+                                          std::placeholders::_2,
+                                          SharedSelf()));
     } catch (std::exception &e) {
         std::cerr << "HandleReadMsg fails.Exception code is:" << e.what() << std::endl;
     }

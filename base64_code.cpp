@@ -3,7 +3,7 @@
 #include <openssl/evp.h>
 #include <stdexcept>
 
-std::string base64_encode(const unsigned char *data, size_t length)
+std::string base64_encode(const char *data, size_t length)
 {
     // 创建 BIO 链：Base64 过滤器 + 内存 BIO
     BIO *b64 = BIO_new(BIO_f_base64());  // 创建 Base64 过滤器

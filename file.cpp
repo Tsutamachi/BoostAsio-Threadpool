@@ -1,8 +1,9 @@
 #include "file.h"
+#include "defines.h"
 
 //这是接收文件的函数
 FileToReceve::FileToReceve(short fileid,
-                           std::string sessionUuid,
+                           std::string &sessionUuid,
                            std::string filename,
                            unsigned int filesize,
                            int filenum,
@@ -14,7 +15,10 @@ FileToReceve::FileToReceve(short fileid,
     , m_FileTotalPackets(filenum)
     , m_FileHash(filehash)
     , m_NextExpectedSeq(0)
-{}
+    , m_CheckAll(filenum)
+{
+    m_FileSavePath = DataPlace + filename;
+}
 
 void FileToReceve::FlushToDisk()
 {
@@ -36,7 +40,7 @@ void FileToReceve::FlushToDisk()
         m_NextExpectedSeq++;
 
         // 文件传输完成检测
-        if (m_NextExpectedSeq >= m_FilePacketsNum) {
+        if (m_NextExpectedSeq >= m_FileTotalPackets) {
             m_FileSaveStream.close();
             break;
         }
@@ -44,7 +48,7 @@ void FileToReceve::FlushToDisk()
 }
 
 //在滑动窗口中检测缺包
-void FileToReceve::CheckMissingPackets()
+bool FileToReceve::CheckMissingPackets()
 {
     //tocheck
     std::vector<int> missing_seqs;
@@ -88,16 +92,18 @@ std::vector<unsigned int> *FileToReceve::GetMissingSeqs()
 }
 
 //之后的函数是Client端发送文件的函数
-FileToSend::FileToSend(std::string filename,
+FileToSend::FileToSend(std::string filepath,
+                       std::string filename,
                        unsigned int filesize,
                        int filetotalpackets,
                        std::string filehash,
                        std::ifstream file)
-    : m_FileName(filename)
+    : m_FilePath(filepath)
+    , m_FileName(filename)
     , m_FileSize(filesize)
     , m_FileTotalPackets(filetotalpackets)
     , m_FileHash(filehash)
-    , m_FileUploadStream(file)
+    , m_FileUploadStream(std::move(file))
 {}
 
 void FileToSend::SetFileId(short fileid)

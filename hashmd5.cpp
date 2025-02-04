@@ -46,7 +46,7 @@ std::string CalculateSmallFileHash(const std::string &filepath)
     return ss.str();
 }
 
-std::string HashMD5::CalculateLargeFileHash(const std::string &filepath)
+std::string CalculateLargeFileHash(const std::string &filepath)
 {
     std::ifstream file(filepath, std::ios::binary);
     if (!file) {
@@ -73,9 +73,9 @@ std::string HashMD5::CalculateLargeFileHash(const std::string &filepath)
     return ss.str();
 }
 
-bool HashMd5::VerifyFileHash(const std::string &filepath, const std::stringstream clienthash)
+bool VerifyFileHash(const std::string &filepath, const std::string clienthash)
 {
-    std::stringstream serverhash = HashMD5::CalculateFileHash(filepath);
+    std::string serverhash = CalculateFileHash(filepath);
     if (serverhash == clienthash)
         return true;
     else

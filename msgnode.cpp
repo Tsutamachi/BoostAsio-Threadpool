@@ -11,9 +11,19 @@ MsgNode::MsgNode(short max_len)
 }
 
 RecevNode::RecevNode(short max_len, short msg_id)
-    : MsgNode(max_len + HEAD_TOTAL_LEN)
+    : MsgNode(max_len)
     , m_MsgId(msg_id)
-{}
+{
+    // std::cout << "SendNode Construct!" /*<< *m_Data */ << std::endl;
+    // std::cout << "m_TotalLen= " << m_TotalLen << std::endl;
+    // std::cout << "m_MsgId= " << m_MsgId << std::endl;
+    // std::cout << "m_Data:" << std::endl;
+}
+
+RecevNode::~RecevNode()
+{
+    // std::cout << "RecevNode Destruct!" << std::endl;
+}
 RecevNode::RecevNode(short max_len, short msg_id, short sequence)
     : MsgNode(max_len + HEAD_TOTAL_LEN)
     , m_MsgId(msg_id)
