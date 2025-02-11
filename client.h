@@ -7,6 +7,7 @@
 #include <vector>
 
 //需要添加一个函数，检测到对端socket.close()后自己socket.close()，然后重新连接该Server?
+class FileToSend;
 class CSession;
 class Client
 {
@@ -15,10 +16,12 @@ class Client
 
 public:
     Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socket, short port);
+    void Greating();
     void HandleSessionClose(); //处理关闭的Session
-    void AddFileToSend(std::unique_ptr<FileToSend> tempfile,
-                       short fileid);                          //将TempFIle加入FilesToSend
-    std::unique_ptr<FileToSend>& FindFileToSend(short fileid); //通过Fileid查询File
+    void AddFileToSend(std::shared_ptr<FileToSend> tempfile,
+                       short fileid);                         //将TempFIle加入FilesToSend
+    std::shared_ptr<FileToSend> FindFileToSend(short fileid); //通过Fileid查询File
+    void RemoveFile(short fileid);
 
     void Test1();
     void EchoTest();        //网络：发送测试
@@ -33,7 +36,7 @@ private:
     std::shared_ptr<CSession> m_Session;
     std::vector<std::thread> vec_threads;
 
-    std::vector<std::unique_ptr<FileToSend>> m_FilesToSend;
+    std::vector<std::shared_ptr<FileToSend>> m_FilesToSend;
     //TempFile为了解决在没有FileId前，不能对应到m_FilesToSend进行存储的问题。
-    std::unique_ptr<FileToSend> m_TempFile;
+    std::shared_ptr<FileToSend> m_TempFile;
 };

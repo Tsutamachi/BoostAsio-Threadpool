@@ -7,9 +7,9 @@ FileManagement::~FileManagement() {}
 
 bool FileManagement::AddFile(const std::string &session_uuid,
                              short file_id,
-                             std::unique_ptr<FileToReceve> file)
+                             std::shared_ptr<FileToReceve> file)
 {
-    std::lock_guard<std::mutex> lock(m_GlobalMutex);
+    std::lock_guard<std::mutex> lock(m_FileMutex);
     //先找到外层Session的入口
     auto &inner_map = m_Files[session_uuid];
     //插入File到内层map
@@ -31,7 +31,7 @@ bool FileManagement::AddPacket(const std::string &session_uuid,
     auto file = findFile(session_uuid, file_id);
 
     // 1. 检查包序号是否在窗口内
-    if ((seq < file->m_NextExpectedSeq) || seq >= (file->m_NextExpectedSeq + file->WINDOW_SIZE)) {
+    if ((seq < file->m_WindowStart) || seq >= (file->m_WindowStart + file->WINDOW_SIZE)) {
         return false; // 忽略过期或超前包
     }
 
@@ -40,15 +40,19 @@ bool FileManagement::AddPacket(const std::string &session_uuid,
 
     // 3. 存储数据并标记位
     file->m_DataBuffer[buffer_pos] = data;
-    file->m_ReceivedFlags.set(buffer_pos); // 标记该位为已接收
+    // file->m_ReceivedFlags.set(buffer_pos); // 标记该位为已接收
+    file->m_AllReceivedFlags[seq] = true;
+    file->m_LastReceivedSeq = seq;
+    file->SlideWindow();
 
     file->m_CV.notify_one(); // 通知写入线程
     return true;
 }
 
-FileToReceve *FileManagement::findFile(const std::string &session_uuid, short file_id)
+std::shared_ptr<FileToReceve> FileManagement::findFile(const std::string &session_uuid,
+                                                       short file_id)
 {
-    std::lock_guard<std::mutex> lock(m_GlobalMutex);
+    std::lock_guard<std::mutex> lock(m_FileMutex);
 
     // 1. 查找外层 Session
     auto outer_it = m_Files.find(session_uuid);
@@ -63,12 +67,12 @@ FileToReceve *FileManagement::findFile(const std::string &session_uuid, short fi
         return nullptr; // FileId 不存在
     }
 
-    return inner_it->second.get(); // 返回裸指针（所有权仍由 unique_ptr 管理）
+    return inner_it->second;
 }
 
 bool FileManagement::removeFile(const std::string &session_uuid, short file_id)
 {
-    std::lock_guard<std::mutex> lock(m_GlobalMutex);
+    std::lock_guard<std::mutex> lock(m_FileMutex);
 
     auto outer_it = m_Files.find(session_uuid);
     if (outer_it == m_Files.end()) {

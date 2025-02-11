@@ -43,9 +43,10 @@ SendNode::SendNode(const char *msg, short max_len, short msg_id)
 
     memcpy(m_Data + HEAD_TOTAL_LEN, msg, max_len); //将传入到Node的msg复制到data中
 
-    // std::cout << "SendNode Construct!" /*<< *m_Data */ << std::endl;
+    // std::cout << std::endl << "SendNode Construct!" << std::endl;
+    std::cout << "SendNode m_MsgId= " << m_MsgId << std::endl;
+    // std::cout << "msg_id_to_net= " << msg_id_host << std::endl << std::endl;
     // std::cout << "m_TotalLen= " << m_TotalLen << std::endl;
-    // std::cout << "m_MsgId= " << m_MsgId << std::endl;
     // std::cout << "m_Data:" << std::endl;
     // for (int i = HEAD_TOTAL_LEN; i < m_TotalLen + HEAD_TOTAL_LEN; ++i) {
     //     // 只打印实际的消息内容

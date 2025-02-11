@@ -56,12 +56,16 @@ std::shared_ptr<CSession> CSession::SharedSelf()
 }
 
 short CSession::GetFileId()
-{ //只有单例的LogicSystem会访问这个资源，不涉及多线程，所以不需要加锁
-    for (short i = 0; i < MAX_UPLOAD_NUM; ++i) {
-        if (m_FileIds[i]) {
-            m_FileIds[i] = false;
-            return i;
-        }
+{
+    std::unique_lock<std::mutex> lock(m_IdLock);
+    if (m_NextFileId != MAX_UPLOAD_NUM && m_FileIds[m_NextFileId] == true) //只会分配第一个0 1~4
+    {
+        short ret = m_NextFileId;
+        m_NextFileId = (m_NextFileId + 1) % MAX_UPLOAD_NUM;
+        return ret;
+    } else if (m_NextFileId == MAX_UPLOAD_NUM && m_FileIds[0] == true) {
+        m_NextFileId = 0; //分配除第一个0以外的所有0
+        return m_NextFileId;
     }
     return -1;
 }
@@ -202,7 +206,8 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         short msg_id = 0;
         memcpy(&msg_id, m_RecevHeadNode->m_Data, HEAD_ID_LEN);
         msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
-        if (msg_id > MAX_LENGTH) {
+        // std::cout << "CSession--msg_id_to_host :" << msg_id << std::endl;
+        if (msg_id > 2020 || msg_id < 1001) {
             std::cout << "invalid data id is :" << msg_id << std::endl;
             if (auto server = GetServerOwner()) {
                 server->ClearSession(m_Uuid); // Server 端清理
@@ -217,7 +222,8 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         short msg_len = 0;
         memcpy(&msg_len, m_RecevHeadNode->m_Data + HEAD_ID_LEN, HEAD_DATA_LEN);
         msg_len = boost::asio::detail::socket_ops::network_to_host_short(msg_len);
-        if (msg_len > TOTAL_LEN) {
+        // std::cout << "CSession--msg_len_to_host :" << msg_len << std::endl << std::endl;
+        if (msg_len > 2000) {
             std::cout << "invalid data length is :" << msg_len << std::endl;
             if (auto server = GetServerOwner()) {
                 server->ClearSession(m_Uuid); // Server 端清理
@@ -229,7 +235,7 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         }
         // std::cout << "MessageLength:" << msg_len << std::endl;
 
-        // m_RecevHeadNode->Clear();
+        m_RecevHeadNode->Clear();
         m_RecevMsgNode = std::make_shared<RecevNode>(msg_len, msg_id);
 
         std::memset(m_Data, 0, HEAD_TOTAL_LEN);

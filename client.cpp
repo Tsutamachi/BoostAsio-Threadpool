@@ -22,10 +22,17 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socke
     std::cout << "Client start success, listen on port : " << m_port << std::endl;
     m_Session->Start();
 
+    Greating();
+}
+
+void Client::Greating()
+{
     std::cout << "Please select the function:" << std::endl
               << "-------------------------------------------------------------------------"
               << std::endl
-              << "1、EchoTest                          2、UploadFile                        "
+              << "1、EchoTestOnce                      2、EchoTestAll                       "
+              << std::endl
+              << "3、RequestUpload                     4、RequestDownLoad                   "
               << std::endl
               << "-------------------------------------------------------------------------"
               << std::endl
@@ -35,16 +42,23 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socke
 
     switch (choose) {
     case 1: {
-        EchoTest();
+        Test1();
         break;
     }
     case 2: {
-        RequestUpload();
+        EchoTest();
         break;
     }
     case 3: {
-        Test1();
+        RequestUpload();
         break;
+    }
+    case 4: {
+        RequestDownload();
+        break;
+    }
+    default: {
+        std::cout << "Error input!" << std::endl;
     }
     }
 }
@@ -57,15 +71,41 @@ void Client::HandleSessionClose()
     m_Socket.close();  //清理Socket资源
 }
 
-void Client::AddFileToSend(std::unique_ptr<FileToSend> tempfile, short fileid)
+void Client::AddFileToSend(std::shared_ptr<FileToSend> tempfile, short fileid)
 {
-    m_FilesToSend[fileid] = std::move(tempfile);
+    // m_FilesToSend[fileid] = tempfile;
+    if (fileid >= 0 && fileid < m_FilesToSend.size()) {
+        // 如果 fileid 是有效的索引，则替换对应位置的元素
+        m_FilesToSend[fileid] = tempfile;
+    } else if (fileid == m_FilesToSend.size()) {
+        // 如果 fileid 等于当前向量的 size，则添加到向量末尾
+        m_FilesToSend.push_back(tempfile);
+    } else {
+        // fileid 无效，可以抛出异常或进行其他错误处理
+        throw std::out_of_range("Invalid file ID");
+    }
 }
 
-std::unique_ptr<FileToSend>& Client::FindFileToSend(short fileid)
+std::shared_ptr<FileToSend> Client::FindFileToSend(short fileid)
 {
     //从m_FilesToSend中通过fileid索引找到FileToSend
-    return m_FilesToSend[fileid];
+    if (m_FilesToSend[fileid])
+        return m_FilesToSend[fileid];
+    else
+        return nullptr;
+}
+
+void Client::RemoveFile(short fileid)
+{
+    // erase会自动调用析构函数
+    // 检查索引是否有效
+    if (fileid < m_FilesToSend.size()) {
+        m_FilesToSend.erase(m_FilesToSend.begin() + fileid);
+    } else {
+        std::cerr << "RemoveFile Index out of range" << std::endl;
+    }
+    std::cout << "FileId :" << fileid << " Removed!" << std::endl << std::endl << std::endl;
+    Greating();
 }
 
 void Client::RequestUpload()
@@ -73,6 +113,7 @@ void Client::RequestUpload()
     //指定需要上传的文件的路径（这里可以设置成一次选择多个文件（limit 5），文件路径存入缓存队列中，LogicSystem从缓存队列中取数据）
     std::string filepath;
     std::cout << "Please enter the path of file you want to upload: ";
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 清除输入缓冲区的换行符
     std::getline(std::cin, filepath);
 
     Json::Value Msg;
@@ -81,7 +122,7 @@ void Client::RequestUpload()
 
     //直接发送请求信息到LogicSystem中,不经过Session中转
     std::shared_ptr RecevMsgNode = std::make_shared<RecevNode>(target.size(), FileUploadRequest);
-    memcpy(RecevMsgNode->m_Data, &target, target.size());
+    memcpy(RecevMsgNode->m_Data, target.data(), target.size());
     LogicSystem::GetInstance()->PostMesgToQue(make_shared<LogicNode>(m_Session, RecevMsgNode));
 }
 
@@ -122,38 +163,6 @@ void Client::EchoTest()
                     LogicSystem::GetInstance()->PostMesgToQue(
                         make_shared<LogicNode>(m_Session, RecevMsgNode));
 
-                    // std::string request = root.toStyledString();
-                    // size_t request_length = request.length();
-                    // char send_data[MAX_LENGTH] = {0};
-                    // int msgid = 1001;
-                    // int msgid_host = boost::asio::detail::socket_ops::host_to_network_short(msgid);
-                    // memcpy(send_data, &msgid_host, 2);
-                    // //转为网络字节序
-                    // int request_host_length = boost::asio::detail::socket_ops::host_to_network_short(
-                    //     request_length);
-                    // memcpy(send_data + 2, &request_host_length, 2);
-                    // memcpy(send_data + 4, request.c_str(), request_length);
-                    // boost::asio::write(sock, boost::asio::buffer(send_data, request_length + 4));
-
-                    // std::cout << "begin to receive..." << std::endl;
-                    // char reply_head[HEAD_TOTAL_LEN];
-                    // size_t reply_length = boost::asio::read(sock,
-                    //                                         boost::asio::buffer(reply_head,
-                    //                                                             HEAD_TOTAL_LEN));
-
-                    // msgid = 0;
-                    // memcpy(&msgid, reply_head, HEAD_ID_LEN);
-                    // short msglen = 0;
-                    // memcpy(&msglen, reply_head + 2, HEAD_DATA_LEN);
-                    // //转为本地字节序
-                    // msglen = boost::asio::detail::socket_ops::network_to_host_short(msglen);
-                    // msgid = boost::asio::detail::socket_ops::network_to_host_short(msgid);
-                    // char msg[MAX_LENGTH] = {0};
-                    // size_t msg_length = boost::asio::read(sock, boost::asio::buffer(msg, msglen));
-                    // Json::Reader reader;
-                    // reader.parse(std::string(msg, msg_length), root);
-                    // std::cout << "msg id is " << root["id"] << " msg is " << root["data"]
-                    //           << std::endl;
                 }
             } catch (std::exception& e) {
                 std::cerr << "Exception: " << e.what() << std::endl;

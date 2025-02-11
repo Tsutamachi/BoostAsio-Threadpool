@@ -63,6 +63,7 @@ private:
     std::string m_Uuid;
     std::queue<std::shared_ptr<SendNode>> m_SendQue;
     std::mutex m_SendLock;
+    std::mutex m_IdLock;
     bool _close;
 
     char m_Data[MAX_LENGTH];
@@ -70,4 +71,5 @@ private:
     std::shared_ptr<RecevNode> m_RecevMsgNode;
     // std::array<bool, MAX_UPLOAD_NUM> m_FileIds;
     bool m_FileIds[MAX_UPLOAD_NUM]; //true代表可用，false代表正在被占用
+    std::atomic<short> m_NextFileId{0};
 };

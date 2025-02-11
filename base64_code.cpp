@@ -1,4 +1,5 @@
 #include "base64_code.h"
+#include <iostream>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <stdexcept>
@@ -25,6 +26,8 @@ std::string base64_encode(const char *data, size_t length)
     long encoded_len = BIO_get_mem_data(bio_mem, &encoded_data);
     std::string result(encoded_data, encoded_len);
 
+    // std::cout << "Base64_encode result :" << std::endl << result << std::endl;
+    // std::cout << "result.length:" << result.length() << std::endl << std::endl;
     // 释放资源
     BIO_free_all(b64); // 会连带释放 bio_mem
 

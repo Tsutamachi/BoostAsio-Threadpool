@@ -61,7 +61,16 @@ private:
     void HandleData(std::shared_ptr<CSession> session, const std::string &msg_data);
 
     //MsgId:FileComplete        回应 接受最后一个包，并进行缺包检测
-    void HandleFinalBag(std::shared_ptr<CSession> session, const std::string &msg_data);
+    void ServerHandleFinalBag(std::shared_ptr<CSession> session, const std::string &msg_data);
+
+    //MsgId:ServerRecevFinal    完成 确认Server接收到Final包
+    void ClientHandleFinalBag(std::shared_ptr<CSession> session, const std::string &msg_data);
+
+    //MsgId:TellLostBag         回应 Client向Server发送缺包
+    void HandleReTransmit(std::shared_ptr<CSession> session, const std::string &msg_data);
+
+    //MsgId:FileComplete        完成 确认Upload功能
+    void FinishUpload(std::shared_ptr<CSession> session, const std::string &msg_data);
 
     std::thread m_WorkerThread;
     std::queue<std::shared_ptr<LogicNode>> m_MegQue;
@@ -71,5 +80,4 @@ private:
     std::condition_variable m_Consume; //能在某个条件成立之前 阻塞线程 并在条件成立时 唤醒线程的机制
     bool m_stop;
 
-    //这里需要一个容器来管理所有的File对象
 };
