@@ -38,7 +38,11 @@ void Client::Greating()
               << std::endl
               << std::endl;
     int choose;
-    std::cin >> choose;
+    while (!(std::cin >> choose)) {
+        std::cout << "Error input! Please enter a number." << std::endl;
+        std::cin.clear();                                                   // 清除错误标志
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
+    }
 
     switch (choose) {
     case 1: {
@@ -61,6 +65,8 @@ void Client::Greating()
         std::cout << "Error input!" << std::endl;
     }
     }
+
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
 }
 
 void Client::HandleSessionClose()
