@@ -578,11 +578,6 @@ void LogicSystem::ServerHandleFinalBag(std::shared_ptr<CSession> session,
         session->Send(target.data(), target.size(), TellLostBag);
     } else {
         //没有缺包，hashMD5检测完整性-complete
-        std::shared_ptr<FileToSend> filetosend = session->GetClientOwner()->FindFileToSend(fileid);
-        if (!filetosend) {
-            std::cout << "LogicSystem::SendVerifyCode FindFileToSend fails" << std::endl;
-            return;
-        }
         file->m_FileSaveStream.close();
 
         //FileSavePath后期可能需要改正
