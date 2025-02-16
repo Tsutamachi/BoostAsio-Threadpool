@@ -1,14 +1,9 @@
 #pragma once
 #include <string>
+#include <vector>
 
 std::string CalculateFileHash(const std::string &filepath);
 std::string CalculateSmallFileHash(const std::string &filepath);
 std::string CalculateLargeFileHash(const std::string &filepath);
-// bool VerifyFileHash(const std::string &filepath, const std::stringstream clienthash);
+std::string CalculateBlockHash(const std::vector<char> &input);
 bool VerifyFileHash(const std::string &filepath, const std::string clienthash);
-
-// class HashMD5
-// {
-// public:
-
-// };

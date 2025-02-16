@@ -28,6 +28,11 @@ public:
 
     bool AddFile(const std::string& session_uuid, short file_id, std::shared_ptr<FileToReceve> file);
 
+    void AddHashRetransmitDataPacket(const std::string& session_uuid,
+                                     short file_id,
+                                     unsigned int seq,
+                                     const std::vector<char>& data);
+
     std::shared_ptr<FileToReceve> findFile(const std::string& session_uuid, short file_id);
 
     bool removeFile(const std::string& session_uuid, short file_id);

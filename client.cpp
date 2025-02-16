@@ -63,10 +63,11 @@ void Client::Greating()
     }
     default: {
         std::cout << "Error input!" << std::endl;
+        Greating();
     }
     }
 
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
+    // std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
 }
 
 void Client::HandleSessionClose()
@@ -79,12 +80,11 @@ void Client::HandleSessionClose()
 
 void Client::AddFileToSend(std::shared_ptr<FileToSend> tempfile, short fileid)
 {
-    // m_FilesToSend[fileid] = tempfile;
     if (fileid >= 0 && fileid < m_FilesToSend.size()) {
-        // 如果 fileid 是有效的索引，则替换对应位置的元素
+        // 替换对应位置的元素
         m_FilesToSend[fileid] = tempfile;
     } else if (fileid == m_FilesToSend.size()) {
-        // 如果 fileid 等于当前向量的 size，则添加到向量末尾
+        // 添加到向量末尾
         m_FilesToSend.push_back(tempfile);
     } else {
         // fileid 无效，可以抛出异常或进行其他错误处理
@@ -92,9 +92,9 @@ void Client::AddFileToSend(std::shared_ptr<FileToSend> tempfile, short fileid)
     }
 }
 
+//从m_FilesToSend中通过fileid索引找到FileToSend
 std::shared_ptr<FileToSend> Client::FindFileToSend(short fileid)
 {
-    //从m_FilesToSend中通过fileid索引找到FileToSend
     if (m_FilesToSend[fileid])
         return m_FilesToSend[fileid];
     else
@@ -104,7 +104,6 @@ std::shared_ptr<FileToSend> Client::FindFileToSend(short fileid)
 void Client::RemoveFile(short fileid)
 {
     // erase会自动调用析构函数
-    // 检查索引是否有效
     if (fileid < m_FilesToSend.size()) {
         m_FilesToSend.erase(m_FilesToSend.begin() + fileid);
     } else {
@@ -121,6 +120,8 @@ void Client::RequestUpload()
     std::cout << "Please enter the path of file you want to upload: ";
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 清除输入缓冲区的换行符
     std::getline(std::cin, filepath);
+
+    //这里将获取的filepaths存入缓存队列，这个函数就结束。下面的是HandleUploadRequest（通过检测缓存队列来启动）
 
     Json::Value Msg;
     Msg["filepath"] = filepath;

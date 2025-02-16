@@ -1,5 +1,8 @@
 #include "file.h"
 #include "defines.h"
+#include "hashmd5.h"
+#include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <json/value.h>
@@ -10,7 +13,8 @@ FileToReceve::FileToReceve(short fileid,
                            std::string filename,
                            unsigned int filesize,
                            int filenum,
-                           std::string filehash)
+                           std::string filehash,
+                           std::shared_ptr<CSession> session)
     : m_SessionUuid(sessionUuid)
     , m_FileId(fileid)
     , m_FileName(filename)
@@ -21,6 +25,11 @@ FileToReceve::FileToReceve(short fileid,
     , m_AllReceivedFlags(filenum, false)
     , m_WindowStart(0)
     , m_CheckedReceiveSeq(0)
+    , m_Verify((filenum / 10) + 1, true)
+    , m_NextVerifying(0)
+    , m_RewriteIndex(0)
+    , m_Session(session)
+
 {
     try {
         m_FileSavePath = std::filesystem::path(DataPlace) / filename;
@@ -46,7 +55,6 @@ FileToReceve::~FileToReceve()
 //与FileManagement::AddPacket搭配使用条件变量m_CV
 void FileToReceve::FlushToDisk()
 {
-    //tocheck
     while (true) {
         try {
             std::unique_lock<std::mutex> lock(m_Mutex);
@@ -59,17 +67,11 @@ void FileToReceve::FlushToDisk()
                 throw std::runtime_error("m_FileSaveStream open fails!");
             }
 
-            // 1. 写入数据
+            // 写入数据
             int buffer_pos = m_NextExpectedSeq % WINDOW_SIZE;
-            std::cout << "FlushToDisk持久化文件数据量：" << m_DataBuffer[buffer_pos].size()
-                      << std::endl
-                      << std::endl;
+            // std::cout << "FlushToDisk持久化文件数据量：" << m_DataBuffer[buffer_pos].size()<< std::endl << std::endl;
             m_FileSaveStream.write(m_DataBuffer[buffer_pos].data(), m_DataBuffer[buffer_pos].size());
 
-            // 2. 重置位标记
-            // m_AllReceivedFlags[buffer_pos] = false;
-
-            // 3. 移动窗口
             m_NextExpectedSeq++;
 
             // 文件传输完成检测
@@ -120,9 +122,9 @@ bool FileToReceve::CheckMissingPacketsInAll()
         return false;
 }
 
-std::vector<unsigned int> *FileToReceve::GetMissingSeqs()
+const std::vector<unsigned int> &FileToReceve::GetMissingSeqs()
 {
-    return &m_MissingSeqs;
+    return m_MissingSeqs;
 }
 
 void FileToReceve::SlideWindow()
@@ -130,6 +132,179 @@ void FileToReceve::SlideWindow()
     // 将窗口滑动到第一个未接受
     while (m_AllReceivedFlags[m_WindowStart]) {
         m_WindowStart++;
+    }
+}
+
+void FileToReceve::AddHashCode(std::string clientcode, unsigned int seq)
+{
+    std::unique_lock<std::mutex> lock(m_Mutex);
+
+    //两个容器的容量都是 m_FileTotalPackets / 10（可能+1） 且连续
+    if (seq >= m_Verify.size()) {
+        // 扩展 m_Verify 到 seq+1，新增元素默认初始化为 false
+        m_Verify.resize(seq + 1, false);
+        // 扩展 m_HashCodes 到 seq+1，新增元素默认初始化为空字符串
+        m_HashCodes.resize(seq + 1);
+    }
+
+    // 标记该序号已添加
+    m_Verify[seq] = true;
+    // 记录对应的哈希码
+    m_HashCodes[seq] = clientcode;
+    m_CVVerify.notify_one();
+}
+
+void FileToReceve::VerifyHash()
+{
+    std::vector<char> dataBuffer(Hash_Verify_Block);
+    unsigned int seq = 0;
+    unsigned int total = 0;
+    while (true) {
+        try {
+            std::unique_lock<std::mutex> lock(m_Mutex);
+            m_CVVerify.wait(lock, [this] { return m_Verify[m_NextVerifying]; });
+
+            m_VerifyStream.open(m_FileSavePath);
+            if (!m_VerifyStream.is_open()) {
+                std::cerr << "VerifyHash(): Cannot open file: " << m_FileSavePath << std::endl;
+                throw std::runtime_error("m_FileSaveStream open fails!");
+                return;
+            }
+
+            //一次检测10个包
+            while (m_VerifyStream.read(reinterpret_cast<char *>(dataBuffer.data()),
+                                       Hash_Verify_Block)) {
+                size_t bytes_read = m_VerifyStream.gcount();
+                if (bytes_read == 0)
+                    break;
+                total += bytes_read;
+
+                std::string data = CalculateBlockHash(dataBuffer);
+
+                if (m_HashCodes[m_NextVerifying] == data) {
+                    //没问题
+                    // m_HashCodes[m_NextVerifying] = "true";
+                } else {
+                    //有问题
+                    m_DamagedBlock.push_back(m_NextVerifying);
+                }
+
+                m_NextVerifying++;
+                seq++;
+                dataBuffer.clear();
+            }
+
+            if (m_VerifyStream.eof()) {
+                //检查剩余所有包
+                if (total < m_FileSize) {
+                    std::string data = CalculateBlockHash(dataBuffer);
+
+                    if (m_HashCodes[m_NextVerifying] == data) {
+                        //没问题
+                        m_HashCodes[m_NextVerifying] = "true";
+                    } else {
+                        //有问题
+                        m_DamagedBlock.push_back(m_NextVerifying);
+                    }
+
+                    m_NextVerifying++;
+                    seq++;
+                    dataBuffer.clear();
+                    break;
+                }
+                std::cout << "File eof!" << std::endl;
+            }
+
+            unsigned int bags = m_FileTotalPackets / 10;
+            if (m_FileTotalPackets % 10)
+                bags++;
+            // 文件传输完成检测
+            if (m_NextVerifying >= bags) {
+                m_VerifyStream.close();
+                std::cout << "Hash Verified!" << std::endl;
+
+                // 不检测缺包问题。就算如果有，在执行完这次Hash检测后，再来一次全文件检查
+
+                // std::unique_lock<std::mutex> lock(file->m_Mutex);
+                // file->m_VerifyFinish.wait(lock);
+                Json::Value Msg;
+                Msg["Fileid"] = m_FileId;
+                std::cout << "Missing bag sequences :" << std::endl;
+                for (auto seq : m_DamagedBlock) {
+                    std::cout << seq << "'\t";
+                    Msg["MissingBags"].append(seq); //Json数组
+                }
+                std::string target = Msg.toStyledString();
+                m_Session->Send(target.data(), target.size(), SendDamagedBlock);
+                break;
+            }
+
+        } catch (std::system_error &e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+}
+
+void FileToReceve::ReWriteCausedByHash()
+{
+    while (true) {
+        try {
+            m_FileSaveStream.open(m_FileSavePath,
+                                  std::ios::in | std::ios::out
+                                      | std::ios::binary); //同时启用读写权限，避免覆盖写时自动清空文件
+
+            std::unique_lock<std::mutex> lock(m_Mutex);
+            m_Rewrite.wait(lock, [this] {
+                return (m_RewriteIndex < m_HashDatas.size())
+                       && (!m_HashDatas[m_RewriteIndex].data.empty());
+            }); //查询有无符合要求的数据包
+
+            if (!m_FileSaveStream.is_open()) {
+                std::cout << "m_FileSaveStream open fails!" << std::endl;
+                throw std::runtime_error("m_FileSaveStream open fails!");
+            }
+
+            std::cout << "Received file sequence :" << m_HashDatas[m_RewriteIndex].seq << std::endl;
+
+            size_t start = m_HashDatas[m_RewriteIndex].seq * FILE_DATA_LEN; //需要+1吗
+            m_FileSaveStream.seekp(start);                                  // 定位到文件开头
+            m_FileSaveStream.write(m_HashDatas[m_RewriteIndex].data.data(),
+                                   m_HashDatas[m_RewriteIndex].data.size()); //覆盖写
+
+            m_RewriteIndex++;
+
+            //防止Rewrite处理太快，m_HashDatas还没添加完就被判定长度相同了
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (m_RewriteIndex >= m_HashDatas.size()) {
+                std::cout << "ReWrite Finished!" << std::endl;
+                m_FileSaveStream.close();
+                //检测现在的文件是否完整
+                if (VerifyFileHash(m_FileSavePath, m_FileHash)) {
+                    Json::Value Msg;
+                    Msg["FileId"] = m_FileId;
+                    Msg["Missing"] = 0;
+                    std::string target = Msg.toStyledString();
+                    m_Session->Send(target.data(), target.size(), FileComplete);
+                } else {
+                    //重置资源
+                    m_Verify.clear();
+                    m_HashCodes.clear();
+                    m_NextVerifying = 0;
+                    m_DamagedBlock.clear();
+                    m_HashDatas.clear();
+                    m_RewriteIndex = 0;
+
+                    Json::Value Msg;
+                    Msg["FileId"] = m_FileId;
+                    std::string target = Msg.toStyledString();
+
+                    m_Session->Send(target.data(), target.size(), RequestVerify);
+                }
+                break;
+            }
+        } catch (std::system_error &e) {
+            std::cout << e.what() << std::endl;
+        }
     }
 }
 

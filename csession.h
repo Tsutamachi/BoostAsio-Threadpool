@@ -19,6 +19,7 @@ class CSession : public std::enable_shared_from_this<CSession>
     friend class RecevNode;
     friend class LogicSystem;
     friend class Client;
+    friend class FileToReceve;
 
 public:
     enum class Role { Server, Client };
@@ -69,7 +70,6 @@ private:
     char m_Data[MAX_LENGTH];
     std::shared_ptr<MsgNode> m_RecevHeadNode;
     std::shared_ptr<RecevNode> m_RecevMsgNode;
-    // std::array<bool, MAX_UPLOAD_NUM> m_FileIds;
     bool m_FileIds[MAX_UPLOAD_NUM]; //true代表可用，false代表正在被占用
     std::atomic<short> m_NextFileId{0};
 };

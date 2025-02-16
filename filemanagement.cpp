@@ -22,6 +22,18 @@ bool FileManagement::AddFile(const std::string &session_uuid,
     return true;
 }
 
+void FileManagement::AddHashRetransmitDataPacket(const std::string &session_uuid,
+                                                 short file_id,
+                                                 unsigned int seq,
+                                                 const std::vector<char> &data)
+{
+    std::lock_guard<std::mutex> lock(m_GlobalMutex);
+    auto file = findFile(session_uuid, file_id);
+
+    file->m_HashDatas.emplace_back(seq, data);
+    file->m_Rewrite.notify_one();
+}
+
 bool FileManagement::AddPacket(const std::string &session_uuid,
                                short file_id,
                                unsigned int seq,
@@ -40,7 +52,6 @@ bool FileManagement::AddPacket(const std::string &session_uuid,
 
     // 3. 存储数据并标记位
     file->m_DataBuffer[buffer_pos] = data;
-    // file->m_ReceivedFlags.set(buffer_pos); // 标记该位为已接收
     file->m_AllReceivedFlags[seq] = true;
     file->m_LastReceivedSeq = seq;
     file->SlideWindow();

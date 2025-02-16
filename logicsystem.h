@@ -72,6 +72,18 @@ private:
     //MsgId:FileComplete        完成 确认Upload功能
     void FinishUpload(std::shared_ptr<CSession> session, const std::string &msg_data);
 
+    //MsgId:RequestVerify       回应 Client发送hash验证码
+    void SendVerifyCode(std::shared_ptr<CSession> session, const std::string &msg_data);
+
+    //MsgId:VerifyCode          接受 Client发送的hash验证码
+    void ReceiveVerifyCode(std::shared_ptr<CSession> session, const std::string &msg_data);
+
+    //MsgId:SendDamagedBlock    接收Server发出的问题seq
+    void SendDamagedHashBlock(std::shared_ptr<CSession> session, const std::string &msg_data);
+
+    //MsgId:ReTranDamagedHash   Server接收 被重传的hash验证有问题的包 到文件（覆盖写）
+    void ServerHandleDamagedHashBag(std::shared_ptr<CSession> session, const std::string &msg_data);
+
     std::thread m_WorkerThread;
     std::queue<std::shared_ptr<LogicNode>> m_MegQue;
     std::mutex m_Mutex;

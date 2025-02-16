@@ -1,6 +1,7 @@
 #include "hashmd5.h"
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <openssl/md5.h>
 #include <sstream>
 
@@ -73,11 +74,33 @@ std::string CalculateLargeFileHash(const std::string &filepath)
     return ss.str();
 }
 
+std::string CalculateBlockHash(const std::vector<char> &input)
+{
+    std::string file_content(input.data(), input.size());
+
+    // 计算哈希值
+    unsigned char hash[MD5_DIGEST_LENGTH];
+    MD5(reinterpret_cast<const unsigned char *>(file_content.data()), file_content.size(), hash);
+
+    // 转换为十六进制字符串
+    std::stringstream ss;
+    for (int i = 0; i < MD5_DIGEST_LENGTH; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
+    }
+
+    return ss.str();
+}
+
 bool VerifyFileHash(const std::string &filepath, const std::string clienthash)
 {
     std::string serverhash = CalculateFileHash(filepath);
-    if (serverhash == clienthash)
+    if (serverhash == clienthash) {
+        std::cout << "Hash Verified!" << std::endl;
         return true;
-    else
+    }
+
+    else {
+        std::cout << "Hash Verified false!" << std::endl;
         return false;
+    }
 }
