@@ -71,5 +71,5 @@ private:
     std::shared_ptr<MsgNode> m_RecevHeadNode;
     std::shared_ptr<RecevNode> m_RecevMsgNode;
     bool m_FileIds[MAX_UPLOAD_NUM]; //true代表可用，false代表正在被占用
-    std::atomic<short> m_NextFileId{0};
+    // std::atomic<short> m_NextFileId{0};
 };

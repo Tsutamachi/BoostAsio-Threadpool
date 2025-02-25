@@ -13,6 +13,7 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socke
     : m_Ioc(ioc)
     , m_Socket(std::move(socket))
     , m_port(port)
+    , m_NowSend(0)
     , m_Session(
           std::make_shared<CSession>(ioc,
                                      this,
@@ -21,6 +22,10 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socke
 {
     std::cout << "Client start success, listen on port : " << m_port << std::endl;
     m_Session->Start();
+
+    // 启动 DealSendQueue 线程
+    std::thread sendThread(&Client::DealSendQueue, this);
+    sendThread.detach(); // 或者使用 detach()，根据需求决定
 
     Greating();
 }
@@ -80,6 +85,7 @@ void Client::HandleSessionClose()
 
 void Client::AddFileToSend(std::shared_ptr<FileToSend> tempfile, short fileid)
 {
+    std::cout << "Client::AddFileToSend.m_FilesToSend.size: " << m_FilesToSend.size() << std::endl;
     if (fileid >= 0 && fileid < m_FilesToSend.size()) {
         // 替换对应位置的元素
         m_FilesToSend[fileid] = tempfile;
@@ -121,22 +127,51 @@ void Client::RequestUpload()
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 清除输入缓冲区的换行符
     std::getline(std::cin, filepath);
 
-    //这里将获取的filepaths存入缓存队列，这个函数就结束。下面的是HandleUploadRequest（通过检测缓存队列来启动）
-
-    Json::Value Msg;
-    Msg["filepath"] = filepath;
-    std::string target = Msg.toStyledString();
-
-    //直接发送请求信息到LogicSystem中,不经过Session中转
-    std::shared_ptr RecevMsgNode = std::make_shared<RecevNode>(target.size(), FileUploadRequest);
-    memcpy(RecevMsgNode->m_Data, target.data(), target.size());
-    LogicSystem::GetInstance()->PostMesgToQue(make_shared<LogicNode>(m_Session, RecevMsgNode));
+    std::unique_lock<std::mutex> lock(m_Mutex);
+    m_SendQueue.push(filepath);
+    if (m_SendQueue.size() == 1) {
+        lock.unlock();
+        m_CVSendQue.notify_one();
+    }
 }
 
 void Client::RequestDownload()
 {
     //从用户空间中指定文件，把在Client端中的路径，传入到Server中，Server查表找到对应被加密的文件
     //todo:只能在确定用户空间文件管理表后才能写
+}
+
+void Client::DealSendQueue()
+{
+    while (true) {
+        std::unique_lock<std::mutex> unique_lk(m_Mutex);
+
+        // 条件：队列为空 或 当前发送数≥5 时等待
+        while (m_SendQueue.empty() || m_NowSend >= 5) {
+            m_CVSendQue.wait(unique_lk);
+        }
+
+        if (m_SendQueue.front().empty()) {
+            m_SendQueue.pop();
+            continue;
+        }
+
+        std::string filepath = m_SendQueue.front();
+        m_SendQueue.pop();
+        m_NowSend++;
+        unique_lk.unlock();
+
+        Json::Value Msg;
+        Msg["filepath"] = filepath;
+        std::string target = Msg.toStyledString();
+
+        //直接发送请求信息到LogicSystem中,不经过Session中转
+        std::shared_ptr RecevMsgNode = std::make_shared<RecevNode>(target.size(), FileUploadRequest);
+        memcpy(RecevMsgNode->m_Data, target.data(), target.size());
+        LogicSystem::GetInstance()->PostMesgToQue(make_shared<LogicNode>(m_Session, RecevMsgNode));
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
 }
 
 void Client::EchoTest()

@@ -47,5 +47,5 @@ private:
         m_Files;
     std::mutex m_GlobalMutex;
     std::mutex m_FileMutex;
-    std::atomic<short> m_NextFileId{0};
+    // std::atomic<short> m_NextFileId{0};
 };

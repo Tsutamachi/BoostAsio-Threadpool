@@ -33,9 +33,12 @@ FileToReceve::FileToReceve(short fileid,
 {
     try {
         m_FileSavePath = std::filesystem::path(DataPlace) / filename;
-        m_FileSaveStream.open(m_FileSavePath);
+        std::cout << "FilePath in Server: " << m_FileSavePath << std::endl;
+        //使用 std::ios::trunc 会截断已存在的文件，或者创建新文件;没有trunc的话不会创建新的文件。
+        m_FileSaveStream.open(m_FileSavePath, std::ios::in | std::ios::out | std::ios::trunc);
         if (!m_FileSaveStream.is_open()) {
-            std::cout << "m_FileSaveStream init fails!" << std::endl;
+            std::error_code ec(errno, std::generic_category());
+            std::cerr << "m_FileSaveStream to init file: " << ec.message() << std::endl;
             throw std::runtime_error("m_FileSaveStream init fails!");
         }
         // 启动 FlushToDisk 线程
@@ -47,9 +50,29 @@ FileToReceve::FileToReceve(short fileid,
 
 FileToReceve::~FileToReceve()
 {
+    // 关闭文件流
     if (m_FileSaveStream.is_open()) {
         m_FileSaveStream.close();
     }
+    if (m_VerifyStream.is_open()) {
+        m_VerifyStream.close();
+    }
+
+    // 清理动态分配的资源，例如 shared_ptr 会自动减少引用计数，并在需要时释放对象
+    // 如果有其他动态分配的资源，也应该在这里释放
+
+    // 销毁条件变量和互斥锁（如果它们是动态分配的）
+    // 注意：在C++标准库中，std::mutex 和 std::condition_variable 不需要显式销毁
+    // 它们会在作用域结束时自动销毁。只有当你动态分配它们时才需要这样做。
+
+    // 清空所有容器
+    m_DataBuffer.fill({});
+    m_AllReceivedFlags.clear();
+    m_MissingSeqs.clear();
+    m_Verify.clear();
+    m_HashCodes.clear();
+    m_DamagedBlock.clear();
+    m_HashDatas.clear();
 }
 
 //与FileManagement::AddPacket搭配使用条件变量m_CV

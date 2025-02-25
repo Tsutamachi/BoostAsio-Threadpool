@@ -26,4 +26,8 @@ private:
     std::mutex m_Mutex;
     boost::asio::ip::tcp::acceptor m_acceptor;
     std::map<std::string, std::shared_ptr<CSession>> m_sessions;
+
+    int m_ServerId;           //DB中自动分配的Id
+    std::string m_ServerName; //Server登陆时的账号
+    //需要修改密码和口令的时候，再从数据库中提取？
 };

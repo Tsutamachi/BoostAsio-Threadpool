@@ -51,11 +51,13 @@ void LogicSystem::DealMsg()
         //停止了传输 && 队列中仍有信息
         if (m_stop) {
             while (!m_MegQue.empty()) {
+                //Client的处理
                 auto meg_node = m_MegQue.front();
-                // std::cout << std::endl
-                //           << "RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId << std::endl;
 
                 if (meg_node->m_Session->m_Role == CSession::Role::Client) {
+                    // std::cout << std::endl
+                    //           << "Client停止了传输 RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId
+                    //           << std::endl;
                     auto call_back_iter = m_ClientFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
                     if (call_back_iter
                         == m_ClientFunCallBacks
@@ -73,6 +75,10 @@ void LogicSystem::DealMsg()
                                                            ->m_TotalLen)); //深度拷贝RecevNode中的Data
                     m_MegQue.pop();
                 } else {
+                    //Server的处理
+                    // std::cout << std::endl
+                    //           << "Server停止了传输RecevMeg Id is: "
+                    //           << meg_node->m_RecevNode->m_MsgId << std::endl;
                     auto call_back_iter = m_ServerFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
                     if (call_back_iter == m_ServerFunCallBacks.end()) {
                         m_MegQue.pop();
@@ -95,6 +101,9 @@ void LogicSystem::DealMsg()
         auto meg_node = m_MegQue.front();
 
         if (meg_node->m_Session->m_Role == CSession::Role::Client) {
+            // std::cout << std::endl
+            //           << "Client正在传输RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId
+            //           << std::endl;
             auto call_back_iter = m_ClientFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
             if (call_back_iter == m_ClientFunCallBacks.end()) {
                 m_MegQue.pop();
@@ -107,6 +116,9 @@ void LogicSystem::DealMsg()
                                                meg_node->m_RecevNode->m_TotalLen));
             m_MegQue.pop();
         } else {
+            // std::cout << std::endl
+            //           << "Server正在传输RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId
+            //           << std::endl;
             auto call_back_iter = m_ServerFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
             if (call_back_iter == m_ServerFunCallBacks.end()) {
                 m_MegQue.pop();
@@ -273,6 +285,10 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         }
 
         std::string filepath = Msg["filepath"].asString();
+        if (filepath == "") {
+            std::cout << "Invalid filepath" << std::endl;
+            return;
+        }
 
         //获取文件的Hash值用于Server验证文件是否传输成功
         std::string filehash = CalculateFileHash(filepath);
@@ -297,6 +313,9 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         if ((file_size % FILE_DATA_LEN))
             total_packets++;
 
+        if (!file.is_open())
+            file.close();
+
         session->GetClientOwner()->m_TempFile = std::make_unique<FileToSend>(filepath,
                                                                              filename,
                                                                              file_size,
@@ -312,7 +331,9 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         root["FileHash"] = filehash;
         std::string target = root.toStyledString();
 
-        std::cout << "Client request upload file:" << filename << std::endl;
+        std::cout << "Client request upload \nFile Name:\t" << filename << std::endl;
+        std::cout << "File Size:\t" << file_size << std::endl
+                  << "Packet Num:\t" << total_packets << std::endl;
         session->Send(target.data(), target.size(), RequestFileId);
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
@@ -347,7 +368,7 @@ void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const s
 
     //由Session分配一个FileId
     short fileid = session->GetFileId(); //从0开始到4
-    //创建File对象用于接收文件数据包和持久化文件
+    std::cout << "FileId :" << fileid << std::endl;
     if (!(fileid + 1)) {
         std::cout << "File upload num is full. Client can only upload 5 files in the same time!"
                   << std::endl;
@@ -360,22 +381,42 @@ void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const s
         return;
 
     } else {
-        std::unique_ptr<FileToReceve> file
-            = std::make_unique<FileToReceve>(fileid,
-                                             session->GetUuid(), //Server给传输数据的Client分配的Uuid
-                                             filename,
-                                             filesize,
-                                             filenum,
-                                             filehash,
-                                             session);
-        FileManagement::GetInstance()->AddFile(session->GetUuid(), fileid, std::move(file));
+        //创建File对象用于接收文件数据包和持久化文件
+        // std::unique_ptr<FileToReceve> file
+        //     = std::make_unique<FileToReceve>(fileid,
+        //                                      session->GetUuid(), //Server给传输数据的Client分配的Uuid
+        //                                      filename,
+        //                                      filesize,
+        //                                      filenum,
+        //                                      filehash,
+        //                                      session);
+        try {
+            FileManagement::GetInstance()
+                ->AddFile(session->GetUuid(),
+                          fileid,
+                          std::move(std::make_unique<FileToReceve>(
+                              fileid,
+                              session->GetUuid(), //Server给传输数据的Client分配的Uuid
+                              filename,
+                              filesize,
+                              filenum,
+                              filehash,
+                              session)));
+            std::cout << "FiletoRecev destructed!" << std::endl;
+        } catch (const std::runtime_error &e) {
+            std::cerr << "AddFile failed: " << e.what() << std::endl;
+            Json::Value Reject;
+            Reject["reject"] = 1;
+            std::string target = Reject.toStyledString();
+
+            session->Send(target.data(), target.length(), RejectUpload);
+            return;
+        }
     }
 
     Json::Value Msg;
     Msg["FileId"] = fileid;
     std::string request = Msg.toStyledString();
-    std::cout << "Received the upload request from client.File name:" << filename << std::endl;
-    std::cout << "FileId :" << fileid << std::endl;
     session->Send(request.data(), request.length(), StartUpload);
     std::cout << "Start Receive File :" << filename << std::endl;
 }
@@ -384,9 +425,8 @@ void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const s
 //收：RejectUpload
 void LogicSystem::HandleRejectUpload(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
-    //不需要关闭文件->文件还没创建
-    std::cout << "Upload Request failed. Client can only upload " << MAX_UPLOAD_NUM
-              << " files in the same time!" << std::endl;
+    // 不需要关闭文件->文件还没创建
+    std::cerr << "Upload Request has been rejected by peer." << std::endl;
 }
 
 //Client函数   Client开始上传数据
@@ -418,6 +458,7 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
         std::cout << "LogicSystem::HandleFileUpload FindFileToSend fails" << std::endl;
         return;
     }
+    session->GetClientOwner()->m_NowSend--;
 
     std::cout << "Start Upload File :" << filetosend->m_FileName << std::endl << std::endl;
     if (!filetosend->m_FileUploadStream.is_open()) {
@@ -450,7 +491,8 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
         }
 
         std::cout << "Send sequence :" << seq << std::endl;
-        std::cout << "Send length :" << target.size() << std::endl;
+        // std::cout << "Send length :" << target.size() << std::endl;
+        std::cout << "Send length :" << bytes_read << std::endl;
         // 加入发送队列
         session->Send(target.data(), target.size(), FileDataBag);
 
@@ -475,6 +517,7 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
                 }
 
                 std::cout << "Send sequence :" << seq << std::endl;
+                std::cout << "Send length :" << last_bytes_read << std::endl;
                 session->Send(target.data(), target.size(), FileDataBag);
 
                 seq++;
@@ -485,7 +528,9 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
     }
 
     //发送完后需要再接收一个Server确认文件完整的包。在获得hash确认完整后再在Client的File队列中删除该File
-    filetosend->m_FileUploadStream.close();
+    if (filetosend->m_FileUploadStream.is_open()) {
+        filetosend->m_FileUploadStream.close();
+    }
     Json::Value Finish;
     Finish["FileId"] = fileid;
     Finish["Filefinish"] = 1;
@@ -578,7 +623,8 @@ void LogicSystem::ServerHandleFinalBag(std::shared_ptr<CSession> session,
         session->Send(target.data(), target.size(), TellLostBag);
     } else {
         //没有缺包，hashMD5检测完整性-complete
-        file->m_FileSaveStream.close();
+        if (!file->m_FileSaveStream.is_open())
+            file->m_FileSaveStream.close();
 
         //FileSavePath后期可能需要改正
         bool complete = VerifyFileHash(file->m_FileSavePath, file->m_FileHash);
@@ -588,7 +634,12 @@ void LogicSystem::ServerHandleFinalBag(std::shared_ptr<CSession> session,
             Msg["FileId"] = fileid;
             Msg["Missing"] = 0;
             std::string target = Msg.toStyledString();
+            //这里可以rename修改 文件在Server存储的文件路径
             session->Send(target.data(), target.size(), FileComplete);
+
+            session->m_FileIds[fileid] = true;
+            FileManagement::GetInstance()->removeFile(session->GetUuid(), fileid);
+            std::cout << "File upload complete! FileName: " << file->m_FileName << std::endl;
         } else {
             // hash验证失败--请求分块检验
             Json::Value Msg;
@@ -678,7 +729,9 @@ void LogicSystem::SendVerifyCode(std::shared_ptr<CSession> session, const std::s
             std::cout << "File eof!" << std::endl;
         }
     }
-    filetosend->m_FileUploadStream.close();
+    if (filetosend->m_FileUploadStream.is_open()) {
+        filetosend->m_FileUploadStream.close();
+    }
 }
 
 //Client->Server    Server接受HASH验证码
@@ -798,7 +851,7 @@ void LogicSystem::ServerHandleDamagedHashBag(std::shared_ptr<CSession> session,
                                                                filedata);
 }
 
-//Server->Client    Client确认Server收到了FinalBag
+//Client函数    Client确认Server收到了FinalBag
 //收：ServerRecevFinal
 void LogicSystem::ClientHandleFinalBag(std::shared_ptr<CSession> session,
                                        const std::string &msg_data)
@@ -883,7 +936,9 @@ void LogicSystem::HandleReTransmit(std::shared_ptr<CSession> session, const std:
         }
     }
 
-    file->m_FileUploadStream.close();
+    if (file->m_FileUploadStream.is_open()) {
+        file->m_FileUploadStream.close();
+    }
 }
 
 //Server->Client    Client处理文件传输完成后的资源回收File

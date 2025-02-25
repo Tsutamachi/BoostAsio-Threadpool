@@ -58,16 +58,16 @@ std::shared_ptr<CSession> CSession::SharedSelf()
 short CSession::GetFileId()
 {
     std::unique_lock<std::mutex> lock(m_IdLock);
-    if (m_NextFileId != MAX_UPLOAD_NUM && m_FileIds[m_NextFileId] == true) //只会分配第一个0 1~4
-    {
-        short ret = m_NextFileId;
-        m_NextFileId = (m_NextFileId + 1) % MAX_UPLOAD_NUM;
-        return ret;
-    } else if (m_NextFileId == MAX_UPLOAD_NUM && m_FileIds[0] == true) {
-        m_NextFileId = 0; //分配除第一个0以外的所有0
-        return m_NextFileId;
+
+    int fileid = -1; //默认为没有能用的fileid
+    for (int i = 0; i < MAX_UPLOAD_NUM; i++) {
+        if (m_FileIds[i]) {
+            fileid = i;
+            m_FileIds[i] = false;
+            break;
+        }
     }
-    return -1;
+    return fileid;
 }
 
 void CSession::Start()
@@ -206,7 +206,7 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         short msg_id = 0;
         memcpy(&msg_id, m_RecevHeadNode->m_Data, HEAD_ID_LEN);
         msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
-        // std::cout << "CSession--msg_id_to_host :" << msg_id << std::endl;
+        // std::cout << "CSession--msg_id :" << msg_id << std::endl;
         if (msg_id > 2020 || msg_id < 1001) {
             std::cout << "invalid data id is :" << msg_id << std::endl;
             if (auto server = GetServerOwner()) {
@@ -272,6 +272,7 @@ void CSession::HandleReadMeg(const boost::system::error_code &error,
 
         LogicSystem::GetInstance()->PostMesgToQue(
             make_shared<LogicNode>(shared_from_this(), m_RecevMsgNode));
+
         std::memset(m_Data, 0, HEAD_TOTAL_LEN);
         // m_RecevMsgNode->Clear();
 

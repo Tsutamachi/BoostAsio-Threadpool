@@ -18,6 +18,7 @@ bool FileManagement::AddFile(const std::string &session_uuid,
     if (!result.second) {
         // 插入失败（FileId 已存在）
         throw std::runtime_error("FileId already exists in this session");
+        return false;
     }
     return true;
 }

@@ -3,6 +3,7 @@
 #include "file.h"
 #include <boost/asio.hpp>
 #include <memory>
+#include <queue>
 #include <thread>
 #include <vector>
 
@@ -29,6 +30,8 @@ public:
     void RequestDownload(); //网络：发出从Server中下载文件的请求
 
 private:
+    void DealSendQueue();
+
     std::string m_ServerIp;
     short m_port;
     boost::asio::io_context& m_Ioc;
@@ -36,7 +39,21 @@ private:
     std::shared_ptr<CSession> m_Session;
     std::vector<std::thread> vec_threads;
 
-    std::vector<std::shared_ptr<FileToSend>> m_FilesToSend;
     //TempFile为了解决在没有FileId前，不能对应到m_FilesToSend进行存储的问题。
+    //File相关的两个成员都是在LogicSystem中创建的
     std::shared_ptr<FileToSend> m_TempFile;
+    std::vector<std::shared_ptr<FileToSend>> m_FilesToSend;
+
+    //传输文件的缓存队列--需要哪些成员？filepath
+    //只要队列中有数据，就请求FIleId.获得的FileId分配给队列中第一个元素
+    //if（FileId用完 && m_Bool:FileFinish）  m_CV.notify.once()
+    //HandleFileUpload中把获得fileid的filepath pop出去
+    std::queue<std::string> m_SendQueue;
+    std::condition_variable m_CVSendQue; //唤醒Send线程？
+    std::mutex m_Mutex;
+    short m_NowSend;
+
+    std::string m_LogedServerName; // 被登陆的Server的账号
+    int m_ClientId;                // 此Client在Server数据库中分配的Id
+    std::string m_ClientName;      // 自定义的账号
 };
