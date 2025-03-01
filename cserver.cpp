@@ -12,6 +12,7 @@ CServer::CServer(boost::asio::io_context &ioc, short port)
     StartAccept();
 }
 
+CServer::~CServer() {}
 void CServer::ClearSession(std::string uuid)
 {
     m_sessions.erase(uuid);

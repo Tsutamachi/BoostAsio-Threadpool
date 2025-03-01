@@ -15,11 +15,6 @@ class FileManagement : public Singleton<FileManagement>
 public:
     ~FileManagement();
 
-    // 创建新的传输任务
-    // short CreateTransfer(const std::string& session_uuid,
-    //                      const std::string& filename,
-    //                      int total_packets);
-
     // 添加数据包到指定传输任务
     bool AddPacket(const std::string& session_uuid,
                    short file_id,

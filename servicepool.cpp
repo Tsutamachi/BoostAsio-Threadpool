@@ -3,7 +3,8 @@
 
 //每一个WorkPtr中都有一个io_Context,每个Context中都会运行size个线程来进行实际工作。
 ServicePool::ServicePool()
-    : m_Services(size)
+    : size(std::thread::hardware_concurrency())
+    , m_Services(size)
     , m_Works(size)
     , m_NextServiceIndex(0)
 {
@@ -24,6 +25,7 @@ ServicePool::ServicePool()
 ServicePool::~ServicePool()
 {
     std::cout << "AsioIOServicePool destruct" << std::endl;
+    this->Stop();
 }
 
 boost::asio::io_context &ServicePool::GetService()

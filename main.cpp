@@ -21,6 +21,7 @@ int main()
             try {
                 auto& pool = ServicePool::GetInstance();
                 boost::asio::io_context ioc; //用于监测退出信号
+
                 boost::asio::signal_set sigquit(
                     ioc,
                     SIGINT,
@@ -74,6 +75,7 @@ int main()
                     getchar();
                     continue;
                 }
+
                 boost::asio::signal_set sigquit(ioc, SIGINT, SIGTERM);
                 sigquit.async_wait([&ioc](auto, auto) {
                     ioc.stop();

@@ -11,6 +11,7 @@ class CServer
 
 public:
     CServer(boost::asio::io_context& ioc, short port);
+    ~CServer();
     void ClearSession(std::string uuid);
     void RequestUpload();   //本地：本地文件 ->上传<- 到Data文件夹，并加密保存
     void RequestDownload(); //本地：从Data文件夹中 ->下载<- 解密文件，并持久化为普通文件---这里需要检查Client端对Server端的全线

@@ -458,7 +458,6 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
         std::cout << "LogicSystem::HandleFileUpload FindFileToSend fails" << std::endl;
         return;
     }
-    session->GetClientOwner()->m_NowSend--;
 
     std::cout << "Start Upload File :" << filetosend->m_FileName << std::endl << std::endl;
     if (!filetosend->m_FileUploadStream.is_open()) {
@@ -952,5 +951,7 @@ void LogicSystem::FinishUpload(std::shared_ptr<CSession> session, const std::str
         return;
     }
     short fileid = root["FileId"].asInt();
+
+    session->GetClientOwner()->m_NowSend--;
     session->GetClientOwner()->RemoveFile(fileid);
 }

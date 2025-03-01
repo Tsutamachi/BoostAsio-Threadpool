@@ -42,7 +42,9 @@ FileToReceve::FileToReceve(short fileid,
             throw std::runtime_error("m_FileSaveStream init fails!");
         }
         // 启动 FlushToDisk 线程
-        std::thread([this] { FlushToDisk(); }).detach();
+        std::thread([this] { FlushToDisk(); }).detach(); //这里不能用join--why?
+        // std::thread([this] { VerifyHash(); }).detach();
+        // std::thread([this] { ReWriteCausedByHash(); }).detach();
     } catch (std::system_error &e) {
         std::cout << e.what() << std::endl;
     }

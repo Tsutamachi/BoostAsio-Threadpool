@@ -14,6 +14,9 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socke
     , m_Socket(std::move(socket))
     , m_port(port)
     , m_NowSend(0)
+    , is_Uploading(false)
+    , is_Downloading(false)
+    , m_CurrentSeq(0)
     , m_Session(
           std::make_shared<CSession>(ioc,
                                      this,
@@ -29,6 +32,8 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socke
 
     Greating();
 }
+
+Client::~Client() {}
 
 void Client::Greating()
 {

@@ -65,6 +65,8 @@ private:
     std::queue<std::shared_ptr<SendNode>> m_SendQue;
     std::mutex m_SendLock;
     std::mutex m_IdLock;
+
+    //状态值
     bool _close;
 
     char m_Data[MAX_LENGTH];

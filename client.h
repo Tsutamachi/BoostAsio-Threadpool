@@ -17,6 +17,7 @@ class Client
 
 public:
     Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socket, short port);
+    ~Client();
     void Greating();
     void HandleSessionClose(); //处理关闭的Session
     void AddFileToSend(std::shared_ptr<FileToSend> tempfile,
@@ -56,4 +57,10 @@ private:
     std::string m_LogedServerName; // 被登陆的Server的账号
     int m_ClientId;                // 此Client在Server数据库中分配的Id
     std::string m_ClientName;      // 自定义的账号
+
+    // 用于断电功能的状态值
+    bool is_Uploading; //Client正在上传文件到Server 用于析构函数中判断状态，是否进行断点记载
+    bool is_Downloading; //Client正在下载文件到Server
+    unsigned int m_CurrentSeq;
+    // 当前传输的文件路径在m_FilesToSend里找
 };
