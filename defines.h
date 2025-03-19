@@ -1,6 +1,7 @@
 #pragma once
 //Server、Client的监听端口
-#define PORT 10086
+#define SERVERPORT 1220
+#define CLIENTPORT 721
 #define DataPlace "/root/DataPlace/"
 
 //包头结构：
@@ -54,4 +55,10 @@ enum MSG_IDS {
     VerifyCode = 2015,        //Client->Server--发送的hash验证码
     SendDamagedBlock = 2016,  //Server->Client--发送有问题的hash-seq
     ReTranDamagedHash = 2017, //Client->Server--重传的数据
+
+    Http_GET = 3001,
+    Http_POST = 3002,
+
+    MSGID_MAX = Http_POST,
+    MSGID_MIN = Test
 };

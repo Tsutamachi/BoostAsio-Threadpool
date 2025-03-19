@@ -29,32 +29,48 @@ public:
              boost::asio::ip::tcp::socket&& socket);
     boost::asio::ip::tcp::socket& GetSocket();
     std::string& GetUuid();
+
     void Start();
+
     void Send(const char* msg, short max_len, short msg_id);
+
+    void SendHttp(std::string& msg); //参数暂定
+
     void SocketClose();
+
     std::shared_ptr<CSession> SharedSelf();
+
     short GetFileId();
 
     void Close();
-    CServer* GetServerOwner() const
-    {
-        return (m_Role == Role::Server) ? static_cast<CServer*>(m_Owner) : nullptr;
-    }
 
-    Client* GetClientOwner() const
-    {
-        return (m_Role == Role::Client) ? static_cast<Client*>(m_Owner) : nullptr;
-    }
+    CServer* GetServerOwner() const;
 
-    Role GetRole() const { return (m_Role == Role::Client) ? Role::Client : Role::Server; }
+    Client* GetClientOwner() const;
+
+    Role GetRole() const;
 
 private:
     void HandleReadHead(const boost::system::error_code& error,
                         size_t bytes_transferred,
                         std::shared_ptr<CSession> shared_self);
+
+    void HandleMyProtocol(const boost::system::error_code& error,
+                          size_t bytes_transferred,
+                          std::shared_ptr<CSession> shared_self);
+
+    void HandleHttpProtocol(const boost::system::error_code& error,
+                            size_t bytes_transferred,
+                            std::shared_ptr<CSession> shared_self);
+
+    void HandleHttpReadMeg(const boost::system::error_code& error,
+                           size_t bytes_transferred,
+                           std::shared_ptr<CSession> shared_self);
+
     void HandleReadMeg(const boost::system::error_code& error,
                        size_t bytes_transferred,
                        std::shared_ptr<CSession> shared_self);
+
     void HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self);
 
     Role m_Role;   // 标识会话是 Server 还是 Client
@@ -74,4 +90,6 @@ private:
     std::shared_ptr<RecevNode> m_RecevMsgNode;
     bool m_FileIds[MAX_UPLOAD_NUM]; //true代表可用，false代表正在被占用
     // std::atomic<short> m_NextFileId{0};
+
+    std::string m_HttpBuffer;
 };

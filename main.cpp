@@ -31,7 +31,7 @@ int main()
                     pool.Stop();
                 });
 
-                CServer server(ioc, PORT);
+                CServer server(ioc, SERVERPORT);
                 ioc.run();
                 flag = false;
 
@@ -63,7 +63,7 @@ int main()
                 boost::asio::io_context ioc;
                 boost::asio::ip::tcp::endpoint remote_ep(boost::asio::ip::address::from_string(
                                                              serverip),
-                                                         PORT);
+                                                         SERVERPORT);
                 boost::asio::ip::tcp::socket sock(ioc);
                 boost::system::error_code error = boost::asio::error::host_not_found;
 
@@ -81,7 +81,7 @@ int main()
                     ioc.stop();
                     //这里可以做强制退出后的资源处理
                 });
-                Client client(ioc, sock, PORT);
+                Client client(ioc, sock, CLIENTPORT);
                 ioc.run();
                 flag = false;
 

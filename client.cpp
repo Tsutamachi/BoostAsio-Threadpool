@@ -186,7 +186,7 @@ void Client::EchoTest()
         vec_threads.emplace_back([this]() -> void {
             try {
                 boost::asio::io_context ioc;
-                tcp::endpoint remote_ep(address::from_string("127.0.0.1"), PORT);
+                tcp::endpoint remote_ep(address::from_string(m_ServerIp), SERVERPORT);
                 tcp::socket sock(ioc);
                 boost::system::error_code error = boost::asio::error::host_not_found;
                 sock.connect(remote_ep, error);
