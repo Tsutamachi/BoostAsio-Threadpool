@@ -39,6 +39,8 @@ private:
     void ClientSendTest(std::shared_ptr<CSession> session, const std::string &msg_data);
     //MsgId:Echo                接受 回显
     void ServerSendTest(std::shared_ptr<CSession> session, const std::string &msg_data);
+
+    void ServerReceiveTest(std::shared_ptr<CSession> session, const std::string &msg_data);
     //MsgId:Back
     void ClientReturn(std::shared_ptr<CSession> session, const std::string &msg_data);
 

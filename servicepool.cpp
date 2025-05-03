@@ -9,8 +9,12 @@ ServicePool::ServicePool()
     , m_NextServiceIndex(0)
 {
     for (std::size_t i = 0; i < size; ++i) {
-        m_Works[i] = std::unique_ptr<boost::asio::io_context::work>(
-            new boost::asio::io_context::work(m_Services[i]));
+        m_Works[i] =
+            std::unique_ptr
+                <boost::asio::executor_work_guard
+                <boost::asio::io_context::executor_type>>(new boost::asio::executor_work_guard
+                                                          <boost::asio::io_context::executor_type>
+                                                          (m_Services[i].get_executor()));
         //也可以new出智能指针后，用std::move的方式移给m_Works[i]。m_Works内数据结构也是智能指针，不能当左值被赋值。
     }
 
@@ -49,8 +53,13 @@ void ServicePool::Stop()
     //当iocontext已经绑定了读或写的监听事件后，还需要手动stop该服务。
     for (auto &work : m_Works) {
         //把服务先停止
-        work->get_io_context().stop();
-        work.reset(); //释放智能指针
+        const auto& executor = work->get_executor();
+           auto& io_context = boost::asio::query(
+               executor,
+               boost::asio::execution::context
+           );
+           io_context.stop();  // 停止 io_context
+           work.reset();       // 释放 work_guard
     }
 
     for (auto &t : m_Threads) {

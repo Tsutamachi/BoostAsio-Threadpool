@@ -2,6 +2,7 @@
 //Server、Client的监听端口
 #define SERVERPORT 1220
 #define CLIENTPORT 721
+#define LOCALHOST_PORT 80
 #define DataPlace "/root/DataPlace/"
 
 //包头结构：

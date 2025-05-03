@@ -143,6 +143,11 @@ void LogicSystem::RegisterCallBacks()
                                            std::placeholders::_1,
                                            std::placeholders::_2);
 
+    m_ServerFunCallBacks[Test] = std::bind(&LogicSystem::ServerReceiveTest,
+                                           this,
+                                           std::placeholders::_1,
+                                           std::placeholders::_2);
+
     m_ServerFunCallBacks[Echo] = std::bind(&LogicSystem::ServerSendTest,
                                            this,
                                            std::placeholders::_1,
@@ -239,6 +244,12 @@ void LogicSystem::ClientSendTest(std::shared_ptr<CSession> session, const std::s
     session->Send(msg_data.data(), msg_data.size(), Echo);
 }
 
+
+
+void LogicSystem::ServerReceiveTest(std::shared_ptr<CSession> session, const std::string &msg_data){
+    std::cout<<"Server Received Test"<<std::endl;
+}
+
 //Server函数   Server将Test请求包回显给Client
 //收：Echo
 //发：Back
@@ -316,7 +327,7 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         if (!file.is_open())
             file.close();
 
-        session->GetClientOwner()->m_TempFile = std::make_unique<FileToSend>(filepath,
+        session->GetClientOwner()->m_TempFile = std::make_shared<FileToSend>(filepath,
                                                                              filename,
                                                                              file_size,
                                                                              total_packets,
@@ -451,7 +462,7 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
 
     std::shared_ptr<FileToSend> tempfile = session->GetClientOwner()->m_TempFile;
     tempfile->SetFileId(fileid);
-    session->GetClientOwner()->AddFileToSend(tempfile, fileid);
+    session->GetClientOwner()->AddFileToSend(std::move(tempfile), fileid);
 
     std::shared_ptr<FileToSend> filetosend = session->GetClientOwner()->FindFileToSend(fileid);
     if (!filetosend) {

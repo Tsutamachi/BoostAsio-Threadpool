@@ -38,6 +38,11 @@ void CServer::HandleAccept(std::shared_ptr<CSession> &new_session,
         std::cout << "session accept failed, error is " << error.what() << std::endl;
         return;
     }
+
+    std::cout << "Accepted connection from: "
+                  << new_session->GetSocket().remote_endpoint().address().to_string()
+                  << ":" << new_session->GetSocket().remote_endpoint().port() << std::endl;
+
     new_session->Start();
     std::lock_guard<std::mutex> lock(m_Mutex);
     m_sessions.insert(std::make_pair(new_session->GetUuid(), new_session));

@@ -5,13 +5,15 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <boost/asio/executor_work_guard.hpp>
 
 class ServicePool /*: public Singleton<ServicePool>*/
 {
     // friend class Singleton<ServicePool>;
 
 public:
-    using WorkPtr = std::unique_ptr<boost::asio::io_context::work>;
+    // using WorkPtr = std::unique_ptr<boost::asio::io_context::work>;//API更新后被废弃，使用下面的进行替代
+    using WorkPtr = std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>;
     ServicePool(const ServicePool &) = delete;
     ServicePool &operator=(const ServicePool &) = delete;
 

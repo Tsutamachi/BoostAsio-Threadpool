@@ -28,7 +28,8 @@ add_executable(
   client.h
   client.cpp
   base64_code.h
-  base64_code.cpp)
+  base64_code.cpp
+  filetransfer.h )
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 

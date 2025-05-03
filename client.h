@@ -16,7 +16,8 @@ class Client
     friend class LogicSystem;
 
 public:
-    Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socket, short port);
+    Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, short port, bool net);
+    Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, short port, bool net,std::string host);
     ~Client();
     void Greating();
     void HandleSessionClose(); //处理关闭的Session
@@ -30,13 +31,19 @@ public:
     void RequestUpload();   //网络：发出上传文件到Server的请求
     void RequestDownload(); //网络：发出从Server中下载文件的请求
 
+    void SendTestMsg();
+
 private:
     void DealSendQueue();
+
+
+    bool m_IsInnerNet;
+    std::string m_Host;
 
     std::string m_ServerIp;
     short m_port;
     boost::asio::io_context& m_Ioc;
-    boost::asio::ip::tcp::socket m_Socket;
+    // boost::asio::ip::tcp::socket m_Socket;
     std::shared_ptr<CSession> m_Session;
     std::vector<std::thread> vec_threads;
 
@@ -61,6 +68,6 @@ private:
     // 用于断电功能的状态值
     bool is_Uploading; //Client正在上传文件到Server 用于析构函数中判断状态，是否进行断点记载
     bool is_Downloading; //Client正在下载文件到Server
-    unsigned int m_CurrentSeq;
+    unsigned int m_CurrentSeq; //这里要记录每一个文件的最近文件号
     // 当前传输的文件路径在m_FilesToSend里找
 };

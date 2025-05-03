@@ -14,6 +14,7 @@
 #include <json/reader.h>
 #include <json/value.h>
 #include <sstream>
+#include "filetransfer.h"
 
 // using boost::asio::awaitable;
 // using boost::asio::co_spawn;
@@ -38,6 +39,16 @@ CSession::CSession(boost::asio::io_context &io_context,
     m_RecevHeadNode = std::make_shared<MsgNode>(HEAD_TOTAL_LEN);
     std::memset(m_FileIds, true, sizeof(m_FileIds));
     std::cout << "CSession Construct!" << std::endl;
+}
+
+CSession::~CSession()
+{
+    if (m_Socket.is_open()) {
+        boost::system::error_code ec;
+        m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        m_Socket.close(); // 确保套接字关闭
+    }
+    // delete m_Data;//不是new的，就不需要手动回收
 }
 
 boost::asio::ip::tcp::socket &CSession::GetSocket()
@@ -85,6 +96,13 @@ CSession::Role CSession::GetRole() const
     return (m_Role == Role::Client) ? Role::Client : Role::Server;
 }
 
+std::string CSession::get_Http_FileName(std::string HttpBuffer)
+{
+    size_t path_start = HttpBuffer.find(" ") + 1;
+    size_t path_end = HttpBuffer.find(" ", path_start);
+    return HttpBuffer.substr(path_start, path_end - path_start);
+}
+
 void CSession::Start()
 {
     //Edition1--非协程
@@ -96,76 +114,6 @@ void CSession::Start()
                                       std::placeholders::_1,
                                       std::placeholders::_2,
                                       SharedSelf()));
-
-    {
-        //Edition2--协程
-        // auto shared_this = shared_from_this();
-        // //开启接受协程
-        // boost::asio::co_spawn(
-        //     m_IoContext,
-        //     [shared_this, this]() -> awaitable<void> {
-        //         try {
-        //             while (!_close) {
-        //                 m_RecevHeadNode->Clear();
-        //                 std::size_t n = co_await boost::asio::async_read(
-        //                     m_Socket,
-        //                     boost::asio::buffer(m_RecevHeadNode->m_Data, HEAD_TOTAL_LEN),
-        //                     use_awaitable);
-        //                 if (n == 0) {
-        //                     std::cout << "receive peer closed" << std::endl;
-        //                     SocketClose();
-        //                     m_Server->ClearSession(m_Uuid);
-        //                     co_return;
-        //                 }
-
-        //                 //MSG_ID
-        //                 short msg_id = 0;
-        //                 memcpy(&msg_id, m_RecevHeadNode->m_Data, HEAD_ID_LEN);
-        //                 msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
-        //                 if (msg_id > MAX_LENGTH) {
-        //                     std::cout << "invalid msg_id!" << std::endl;
-        //                     SocketClose();
-        //                     m_Server->ClearSession(m_Uuid);
-        //                     co_return;
-        //                 }
-        //                 //MSG_LEN
-        //                 short msg_len = 0;
-        //                 memcpy(&msg_len, m_RecevHeadNode->m_Data + HEAD_ID_LEN, HEAD_DATA_LEN);
-        //                 msg_len = boost::asio::detail::socket_ops::network_to_host_short(msg_len);
-        //                 if (msg_len > MAX_LENGTH) {
-        //                     std::cout << "invalid msg_len!" << std::endl;
-        //                     SocketClose();
-        //                     m_Server->ClearSession(m_Uuid);
-        //                     co_return;
-        //                 }
-
-        //                 //MSG
-        //                 m_RecevMsgNode = std::make_shared<RecevNode>(msg_len, msg_id);
-        //                 n = co_await boost::asio::async_read(m_Socket,
-        //                                                      boost::asio::buffer(m_RecevMsgNode->m_Data,
-        //                                                                          m_RecevMsgNode
-        //                                                                              ->m_TotalLen),
-        //                                                      use_awaitable);
-        //                 if (n == 0) {
-        //                     std::cout << "receive peer closed" << std::endl;
-        //                     SocketClose();
-        //                     m_Server->ClearSession(m_Uuid);
-        //                     co_return;
-        //                 }
-        //                 m_RecevMsgNode->m_Data[m_RecevMsgNode->m_TotalLen] = '\0';
-        //                 std::cout << "Recev Data is: " << m_RecevMsgNode->m_Data << std::endl;
-        //                 LogicSystem::GetInstance()->PostMesgToQue(
-        //                     std::make_shared<LogicNode>(shared_from_this(), m_RecevMsgNode));
-        //             }
-
-        //         } catch (std::system_error &e) {
-        //             std::cout << "exception is " << e.what() << std::endl;
-        //             SocketClose();
-        //             m_Server->ClearSession(m_Uuid);
-        //         }
-        //     },
-        //     detached);
-    }
 }
 
 void CSession::SocketClose()
@@ -208,8 +156,11 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
         if (memcmp(m_RecevHeadNode->m_Data, "GET ", HEAD_TOTAL_LEN) == 0
             || memcmp(m_RecevHeadNode->m_Data, "POST", HEAD_TOTAL_LEN) == 0) {
             std::cout << "Detected HTTP protocol" << std::endl;
+
+            // this->HandleHttpProtocol(error, bytes_transferred, SharedSelf());
+            m_HttpBuffer.append(m_RecevHeadNode->m_Data, HEAD_TOTAL_LEN);
             boost::asio::async_read_until(m_Socket,
-                                          boost::asio::dynamic_buffer(m_HttpBuffer),
+                                          boost::asio::dynamic_buffer(m_HttpBuffer),//动态缓冲默认续写而非覆盖
                                           "\r\n\r\n",
                                           std::bind(&CSession::HandleHttpProtocol,
                                                     this,
@@ -218,8 +169,6 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
                                                     SharedSelf()));
         } else {
             std::cout << "Detected custom protocol" << std::endl;
-            // this->HandleHttpProtocol(error, bytes_transferred, SharedSelf());
-            // m_HttpBuffer.append(m_RecevHeadNode->m_Data, HEAD_TOTAL_LEN);
             this->HandleMyProtocol(error, bytes_transferred, SharedSelf());
         }
 
@@ -289,41 +238,61 @@ void CSession::HandleHttpProtocol(const boost::system::error_code &error,
                 client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
             }
         }
+
         std::cout << "Http请求头：" << std::endl;
         std::cout << m_HttpBuffer << std::endl;
 
-        //todo：这里要完成对GET、POST的判别，继续不同的处理
-        //memcmp(m_RecevHeadNode->m_Data, "GET ", HEAD_TOTAL_LEN)
+        if(!memcmp(m_RecevHeadNode->m_Data, "GET ", HEAD_TOTAL_LEN))
+        {
+            //处理GET请求:找出GET请求的文件名，传输（做成一个通用函数）
+            std::string request_path = get_Http_FileName(m_HttpBuffer);
+            std::cout<<"FilePath: "<<request_path<<std::endl;
 
-        //POST的处理
-        size_t header_end = m_HttpBuffer.find("\r\n\r\n"); //返回的索引是指向第一个\r的索引
-        std::string headers = m_HttpBuffer.substr(0, header_end); //创造一个header副本
-        std::istringstream stream(headers);
-        std::string line;
-        unsigned long msg_len = 0;
-
-        //获取Msg部分的长度msg_len
-        while (std::getline(stream, line)) {
-            std::transform(line.begin(), line.end(), line.begin(), ::tolower); // 处理大小写问题
-            if (line.find("content-length:") != std::string::npos) {           //找到了
-                // +2跳过“:”和“空格”
-                msg_len = std::stoul(line.substr(line.find(":") + 2)); //string to unsigned long;
-                break;
+            //不允许查看父目录
+            if (request_path.find("..") != std::string::npos) {
+                // send_http_error(403, "Forbidden");
+                return;
             }
+
+            std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nHello";
+            boost::asio::async_write(m_Socket,
+                              boost::asio::buffer(response));
+                    // SendHttp(response);
+
+            // FileTransfer::SendFile(this->m_Socket,request_path);
         }
+        else
+        {
+            //POST的处理：找出length，接收数据后送给logicSystem做处理
+            size_t header_end = m_HttpBuffer.find("\r\n\r\n"); //返回的索引是指向第一个\r的索引
+            std::string headers = m_HttpBuffer.substr(0, header_end); //创造一个header副本
+            std::istringstream stream(headers);
+            std::string line;
+            unsigned long msg_len = 0;
 
-        if (msg_len) {
-            m_RecevMsgNode = std::make_shared<RecevNode>(msg_len,
-                                                         0); //msg_id在读取信息里重新设置
+            //获取Msg部分的长度msg_len
+            while (std::getline(stream, line)) {
+                std::transform(line.begin(), line.end(), line.begin(), ::tolower); // 处理大小写问题
+                if (line.find("content-length:") != std::string::npos) {           //找到了
+                    // +2跳过“:”和“空格”
+                    msg_len = std::stoul(line.substr(line.find(":") + 2)); //string to unsigned long;
+                    break;
+                }
+            }
 
-            std::memset(m_Data, 0, HEAD_TOTAL_LEN);
-            boost::asio::async_read(m_Socket,
-                                    boost::asio::buffer(m_Data, msg_len), //m_Data[2048]  2kb
-                                    std::bind(&CSession::HandleHttpReadMeg,
-                                              this,
-                                              std::placeholders::_1,
-                                              std::placeholders::_2,
-                                              SharedSelf()));
+            if (msg_len) {
+                m_RecevMsgNode = std::make_shared<RecevNode>(msg_len,
+                                                             0); //msg_id在读取信息里重新设置
+
+                std::memset(m_Data, 0, HEAD_TOTAL_LEN);
+                boost::asio::async_read(m_Socket,
+                                        boost::asio::buffer(m_Data, msg_len), //m_Data[2048]  2kb
+                                        std::bind(&CSession::HandleHttpReadMeg,
+                                                  this,
+                                                  std::placeholders::_1,
+                                                  std::placeholders::_2,
+                                                  SharedSelf()));
+            }
         }
 
     } catch (std::exception &e) {

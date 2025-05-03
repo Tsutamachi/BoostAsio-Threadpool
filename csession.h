@@ -27,6 +27,8 @@ public:
              void* owner,
              Role role,
              boost::asio::ip::tcp::socket&& socket);
+    ~CSession();
+
     boost::asio::ip::tcp::socket& GetSocket();
     std::string& GetUuid();
 
@@ -51,6 +53,8 @@ public:
     Role GetRole() const;
 
 private:
+    std::string get_Http_FileName(std::string HttpBuffer);
+
     void HandleReadHead(const boost::system::error_code& error,
                         size_t bytes_transferred,
                         std::shared_ptr<CSession> shared_self);

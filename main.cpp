@@ -21,17 +21,18 @@ int main()
             try {
                 auto& pool = ServicePool::GetInstance();
                 boost::asio::io_context ioc; //用于监测退出信号
+                auto server = std::make_shared<CServer>(ioc, SERVERPORT);
 
                 boost::asio::signal_set sigquit(
-                    ioc,
-                    SIGINT,
-                    SIGTERM); //第一个信号是Ctrl+c的强制退出，第二个是右上角的退出按钮对应的信号
-                sigquit.async_wait([&ioc, &pool](auto, auto) { //两个auto对应两个信号
+                            ioc,
+                            SIGINT,
+                            SIGTERM); //第一个信号是Ctrl+c的强制退出，第二个是右上角的退出按钮对应的信号
+                sigquit.async_wait([&ioc, &pool, &server](auto, auto) { //两个auto对应两个信号
                     ioc.stop();
                     pool.Stop();
+                    // server.~CServer();
                 });
 
-                CServer server(ioc, SERVERPORT);
                 ioc.run();
                 flag = false;
 
@@ -42,102 +43,132 @@ int main()
 
         //Log as Client
         else if (role == "NO" || role == "no" || role == "No") {
-            try {
-                std::string serverip;
-                std::cout << "Please enter the server ipaddress(v4) you want to link with";
-                serverip = "127.0.0.1";
-                // std::getline(std::cin, serverip);
 
-                // 使用正则表达式检查 IPv4 地址格式
-                std::regex ip_regex(
-                    "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-"
-                    "4][0-9]|[01]?[0-9][0-9]?)$");
+            std::cout<<"Are you in the net of your campany?(yes->Inner net  no-> Internet):";
+            std::string net;
+            std::getline(std::cin, net);
 
-                if (!std::regex_match(serverip, ip_regex)) {
-                    std::cerr << "Invalid IPv4 address format." << std::endl;
-                    // 处理错误情况，例如退出或提示用户重新输入
-                    continue;
+
+            //Log in the Inner net
+            if(net == "YES" || net == "Yes" || net =="yes" )
+            {
+                try {
+                    std::string serverip;
+                    std::cout << "Please enter the server ipaddress(v4) you want to link with";
+                    serverip = "127.0.0.1";
+                    // std::getline(std::cin, serverip);
+
+                    // 使用正则表达式检查 IPv4 地址格式
+                    std::regex ip_regex(
+                                "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-"
+                                "4][0-9]|[01]?[0-9][0-9]?)$");
+
+                    if (!std::regex_match(serverip, ip_regex)) {
+                        std::cerr << "Invalid IPv4 address format." << std::endl;
+                        // 处理错误情况，例如退出或提示用户重新输入
+                        continue;
+                    }
+
+                    //尝试连接Server
+                    boost::asio::io_context ioc;
+                    // boost::asio::ip::tcp::endpoint remote_ep(boost::asio::ip::address::from_string(serverip,SERVERPORT);//API更新已经被废弃
+                    boost::asio::ip::tcp::endpoint remote_ep(boost::asio::ip::make_address(serverip), SERVERPORT);
+                    boost::asio::ip::tcp::socket sock(ioc);
+                    boost::system::error_code error = boost::asio::error::host_not_found;
+
+                    sock.connect(remote_ep, error);
+                    if (error) {
+                        std::cerr << "connect failed, code is " << error.value() << " error msg is "
+                                  << error.message() << std::endl
+                                  << "Enter anykey to try again." << std::endl;
+                        getchar();
+                        continue;
+                    }
+
+                    auto client = std::make_shared<Client>(ioc, std::move(sock), CLIENTPORT , true);
+                    boost::asio::signal_set sigquit(ioc, SIGINT, SIGTERM);
+                    sigquit.async_wait([&ioc, &client](auto, auto) {
+                        ioc.stop();
+                        //这里可以做强制退出后的资源处理
+                        // client.~Client();
+                    });
+                    ioc.run();
+                    flag = false;
+                }catch (std::exception& e) {
+                    std::cerr << "Client init false :" << e.what() << std::endl;
                 }
-
-                //尝试连接Server
-                boost::asio::io_context ioc;
-                boost::asio::ip::tcp::endpoint remote_ep(boost::asio::ip::address::from_string(
-                                                             serverip),
-                                                         SERVERPORT);
-                boost::asio::ip::tcp::socket sock(ioc);
-                boost::system::error_code error = boost::asio::error::host_not_found;
-
-                sock.connect(remote_ep, error);
-                if (error) {
-                    std::cerr << "connect failed, code is " << error.value() << " error msg is "
-                              << error.message() << std::endl
-                              << "Enter anykey to try again." << std::endl;
-                    getchar();
-                    continue;
-                }
-
-                boost::asio::signal_set sigquit(ioc, SIGINT, SIGTERM);
-                sigquit.async_wait([&ioc](auto, auto) {
-                    ioc.stop();
-                    //这里可以做强制退出后的资源处理
-                });
-                Client client(ioc, sock, CLIENTPORT);
-                ioc.run();
-                flag = false;
-
-            } catch (std::exception& e) {
-                std::cerr << "Client init false :" << e.what() << std::endl;
             }
-        }
 
-        //Input error
-        else {
-            std::cerr << std::endl << "Invalid input! Enter anykey to try again." << std::endl;
-            getchar();
+
+            //Log in the Internet
+
+            else if(net == "No" || net == "No" || net =="no"){
+                try{
+                    std::cout << "Please enter the Net Address of Server: ";
+                    std::string host;
+                    std::getline(std::cin, host);
+
+                    boost::system::error_code error;
+                    boost::asio::io_context ioc;
+                    boost::asio::ip::tcp::resolver resolver(ioc);
+                    boost::asio::ip::tcp::socket sock(ioc);
+                    // auto endpoints = resolver.resolve(host, std::to_string(SERVERPORT));
+
+
+                    // auto endpoints = resolver.resolve(host, std::to_string(LOCALHOST_PORT));
+                    // if (endpoints.empty()) {
+                    //     std::cerr << "No endpoints resolved for host: " << host << std::endl;
+                    //     continue;
+                    // }
+
+                    // std::cout << "Resolved endpoints:" << std::endl;
+                    // for (const auto& ep : endpoints) {
+                    //     std::cout << "  " << ep.endpoint().address().to_string()
+                    //               << ":" << ep.endpoint().port() << std::endl;
+                    // }
+
+                    // boost::asio::connect(sock,
+                    //                      endpoints,
+                    //                      error);
+
+                    boost::asio::connect(sock, resolver.resolve(host, "80"), error);
+
+                    if (error) {
+                        std::cerr << "connect failed, code is " << error.value() << " error msg is "
+                                  << error.message() << std::endl
+                                  << "Enter anykey to try again." << std::endl;
+                        getchar();
+                        continue;
+                    }
+
+                    auto local_ep = sock.local_endpoint();
+                    auto remote_ep = sock.remote_endpoint();
+                    std::cout << "Connected from " << local_ep.address().to_string() << ":" << local_ep.port()
+                              << " to " << remote_ep.address().to_string() << ":" << remote_ep.port() << std::endl;
+
+                    auto client = std::make_shared<Client>(ioc, std::move(sock), LOCALHOST_PORT , false);
+                    client->SendTestMsg();
+                    boost::asio::signal_set sigquit(ioc, SIGINT, SIGTERM);
+                    sigquit.async_wait([&ioc, &client](auto, auto) {
+                        ioc.stop();
+                        //这里可以做强制退出后的资源处理
+                        // client.~Client();
+                    });
+                    ioc.run();
+
+                    flag = false;
+                }catch (std::exception& e) {
+                    std::cerr << "Client init false :" << e.what() << std::endl;
+                }
+            }
+
+            //Invalid input
+            else{
+                std::cerr << std::endl << "Invalid input! Enter anykey to try again." << std::endl;
+                getchar();
+            }
+
         }
     }
 }
 
-//优雅退出：通用版本
-// #include "Singleton.h"
-// #include "cserver.h"
-// #include "logicsystem.h"
-// #include <csignal>
-// #include <iostream>
-// #include <mutex>
-// #include <thread>
-// using namespace std;
-// bool bstop = false;
-// std::condition_variable cond_quit;
-// std::mutex mutex_quit;
-// void sig_handler(int sig)
-// {
-//     if (sig == SIGINT || sig == SIGTERM) {
-//         std::unique_lock<std::mutex> lock_quit(mutex_quit);
-//         bstop = true;
-//         lock_quit.unlock();
-//         cond_quit.notify_one();
-//     }
-// }
-
-// int main()
-// {
-//     try {
-//         boost::asio::io_context io_context;
-//         std::thread net_work_thread([&io_context] { //子进程执行网络程序
-//             CServer s(io_context, 10086);
-//             io_context.run();
-//         });
-//         signal(SIGINT, sig_handler); //为信号注册回调函数
-//         signal(SIGTERM, sig_handler);
-//         while (!bstop) {
-//             std::unique_lock<std::mutex> lock_quit(mutex_quit);
-//             cond_quit.wait(lock_quit); //会监听cond_quit.notify_，监听到了，就解锁对应的mutex条件变量
-//         }
-//         io_context.stop();
-//         net_work_thread.join(); //等待网络子线程退出后，该线程才会退出
-
-//     } catch (std::exception& e) {
-//         std::cerr << "Exception: " << e.what() << endl;
-//     }
-// }

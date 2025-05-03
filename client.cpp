@@ -9,19 +9,44 @@
 
 using namespace boost::asio::ip;
 
-Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socket, short port)
+Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, short port, bool net)
     : m_Ioc(ioc)
-    , m_Socket(std::move(socket))
     , m_port(port)
     , m_NowSend(0)
     , is_Uploading(false)
     , is_Downloading(false)
     , m_CurrentSeq(0)
+    , m_IsInnerNet(net)
     , m_Session(
           std::make_shared<CSession>(ioc,
                                      this,
                                      CSession::Role::Client,
-                                     std::move(m_Socket))) //只有一个Session,可以直接初始化列表了
+                                     std::move(socket))) //只有一个Session,可以直接初始化列表了
+{
+    std::cout << "Client start success, listen on port : " << m_port << std::endl;
+    m_Session->Start();
+
+    // 启动 DealSendQueue 线程
+    std::thread sendThread(&Client::DealSendQueue, this);
+    sendThread.detach(); // 或者使用 detach()，根据需求决定
+
+    Greating();
+}
+
+Client::Client(boost::asio::io_context &ioc, boost::asio::ip::tcp::socket socket, short port, bool net, std::string host)
+    : m_Ioc(ioc)
+    , m_port(port)
+    , m_NowSend(0)
+    , is_Uploading(false)
+    , is_Downloading(false)
+    , m_CurrentSeq(0)
+    , m_IsInnerNet(net)
+    , m_Host(host)
+    , m_Session(
+          std::make_shared<CSession>(ioc,
+                                     this,
+                                     CSession::Role::Client,
+                                     std::move(socket))) //只有一个Session,可以直接初始化列表了
 {
     std::cout << "Client start success, listen on port : " << m_port << std::endl;
     m_Session->Start();
@@ -37,55 +62,90 @@ Client::~Client() {}
 
 void Client::Greating()
 {
-    std::cout << "Please select the function:" << std::endl
-              << "-------------------------------------------------------------------------"
-              << std::endl
-              << "1、EchoTestOnce                      2、EchoTestAll                       "
-              << std::endl
-              << "3、RequestUpload                     4、RequestDownLoad                   "
-              << std::endl
-              << "-------------------------------------------------------------------------"
-              << std::endl
-              << std::endl;
-    int choose;
-    while (!(std::cin >> choose)) {
-        std::cout << "Error input! Please enter a number." << std::endl;
-        std::cin.clear();                                                   // 清除错误标志
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
+
+    //InnerNet choose function
+    if(m_IsInnerNet){
+        std::cout << "Please select the function:" << std::endl
+                  << "-------------------------------------------------------------------------"
+                  << std::endl
+                  << "1、EchoTestOnce                      2、EchoTestAll                       "
+                  << std::endl
+                  << "3、RequestUpload                     4、RequestDownLoad                   "
+                  << std::endl
+                  << "-------------------------------------------------------------------------"
+                  << std::endl
+                  << std::endl;
+        int choose;
+        while (!(std::cin >> choose)) {
+            std::cout << "Error input! Please enter a number." << std::endl;
+            std::cin.clear();                                                   // 清除错误标志
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
+        }
+
+        switch (choose) {
+        case 1: {
+            Test1();
+            break;
+        }
+        case 2: {
+            EchoTest();
+            break;
+        }
+        case 3: {
+            RequestUpload();
+            break;
+        }
+        case 4: {
+            RequestDownload();
+            break;
+        }
+        default: {
+            std::cout << "Error input!" << std::endl;
+            Greating();
+        }
+        }
     }
 
-    switch (choose) {
-    case 1: {
-        Test1();
-        break;
-    }
-    case 2: {
-        EchoTest();
-        break;
-    }
-    case 3: {
-        RequestUpload();
-        break;
-    }
-    case 4: {
-        RequestDownload();
-        break;
-    }
-    default: {
-        std::cout << "Error input!" << std::endl;
-        Greating();
-    }
+    //Internet choose function
+    else{
+        std::cout << "Please select the function:" << std::endl
+                  << "-------------------------------------------------------------------------"
+                  << std::endl
+                  << "1、EchoTestOnce                                            "
+                  << std::endl
+                  << "-------------------------------------------------------------------------"
+                  << std::endl
+                  << std::endl;
+        int choose;
+        while (!(std::cin >> choose)) {
+            std::cout << "Error input! Please enter a number." << std::endl;
+            std::cin.clear();                                                   // 清除错误标志
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
+        }
+
+        switch (choose) {
+        case 1: {
+            Test1();
+            break;
+        }
+        case 2: {
+            // EchoTest();
+            break;
+        }
+        default: {
+            std::cout << "Error input!" << std::endl;
+            Greating();
+        }
+        }
     }
 
-    // std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 忽略剩余的输入
 }
 
 void Client::HandleSessionClose()
 {
-    //在这里可以添加Client的资源回收和各种文件的持久化保存，如断点续传的包数
-
-    m_Session.reset(); //清理Session资源
-    m_Socket.close();  //清理Socket资源
+    m_Session.reset(); //功能：智能指针的计数-1
+    // m_Socket.close();  //清理Socket资源  在Session的析构函数中设置了
 }
 
 void Client::AddFileToSend(std::shared_ptr<FileToSend> tempfile, short fileid)
@@ -179,55 +239,64 @@ void Client::DealSendQueue()
     }
 }
 
+void Client::SendTestMsg()
+{
+    std::string request = "GET / HTTP/1.1\r\n"
+                          "Host: " + m_Host + "\r\n"
+                          "Connection: keep-alive\r\n\r\n";
+
+    boost::asio::write(m_Session->m_Socket, boost::asio::buffer(request));
+}
+
 void Client::EchoTest()
 {
-    auto start = std::chrono::high_resolution_clock::now(); // 获取开始时间
-    for (int i = 0; i < 100; i++) {
-        vec_threads.emplace_back([this]() -> void {
-            try {
-                boost::asio::io_context ioc;
-                tcp::endpoint remote_ep(address::from_string(m_ServerIp), SERVERPORT);
-                tcp::socket sock(ioc);
-                boost::system::error_code error = boost::asio::error::host_not_found;
-                sock.connect(remote_ep, error);
-                if (error) {
-                    std::cout << "connect failed, code is " << error.value() << " error msg is "
-                              << error.message();
-                    return;
-                }
-                for (int j = 0; j < 500; ++j) {
-                    Json::Value root;
-                    root["id"] = Test;
-                    root["data"] = "hello world" + std::to_string(j);
-                    // std::cout << "Root[data]: " << root["data"] << std::endl;
-                    std::string target = root.toStyledString();
+    // auto start = std::chrono::high_resolution_clock::now(); // 获取开始时间
+    // for (int i = 0; i < 100; i++) {
+    //     vec_threads.emplace_back([this]() -> void {
+    //         try {
+    //             boost::asio::io_context ioc;
+    //             tcp::endpoint remote_ep(address::from_string(m_ServerIp), SERVERPORT);
+    //             tcp::socket sock(ioc);
+    //             boost::system::error_code error = boost::asio::error::host_not_found;
+    //             sock.connect(remote_ep, error);
+    //             if (error) {
+    //                 std::cout << "connect failed, code is " << error.value() << " error msg is "
+    //                           << error.message();
+    //                 return;
+    //             }
+    //             for (int j = 0; j < 500; ++j) {
+    //                 Json::Value root;
+    //                 root["id"] = Test;
+    //                 root["data"] = "hello world" + std::to_string(j);
+    //                 // std::cout << "Root[data]: " << root["data"] << std::endl;
+    //                 std::string target = root.toStyledString();
 
-                    //直接发送请求信息到LogicSystem中,不经过Session中转
-                    std::shared_ptr<RecevNode> RecevMsgNode
-                        = std::make_shared<RecevNode>(target.size(), Test);
-                    memcpy(RecevMsgNode->m_Data, target.data(), target.size());
+    //                 //直接发送请求信息到LogicSystem中,不经过Session中转
+    //                 std::shared_ptr<RecevNode> RecevMsgNode
+    //                     = std::make_shared<RecevNode>(target.size(), Test);
+    //                 memcpy(RecevMsgNode->m_Data, target.data(), target.size());
 
-                    LogicSystem::GetInstance()->PostMesgToQue(
-                        make_shared<LogicNode>(m_Session, RecevMsgNode));
+    //                 LogicSystem::GetInstance()->PostMesgToQue(
+    //                     make_shared<LogicNode>(m_Session, RecevMsgNode));
 
-                }
-            } catch (std::exception& e) {
-                std::cerr << "Exception: " << e.what() << std::endl;
-            }
-        });
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+    //             }
+    //         } catch (std::exception& e) {
+    //             std::cerr << "Exception: " << e.what() << std::endl;
+    //         }
+    //     });
+    //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // }
 
-    for (auto& t : vec_threads) {
-        t.join();
-    }
-    // 执行一些需要计时的操作
-    auto end = std::chrono::high_resolution_clock::now(); // 获取结束时间
+    // for (auto& t : vec_threads) {
+    //     t.join();
+    // }
+    // // 执行一些需要计时的操作
+    // auto end = std::chrono::high_resolution_clock::now(); // 获取结束时间
 
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(
-        end - start); // 计算时间差，单位为微秒
-    std::cout << "Time spent: " << duration.count() << " seconds." << std::endl;
-    getchar();
+    // auto duration = std::chrono::duration_cast<std::chrono::seconds>(
+    //     end - start); // 计算时间差，单位为微秒
+    // std::cout << "Time spent: " << duration.count() << " seconds." << std::endl;
+    // getchar();
 }
 
 void Client::Test1()
