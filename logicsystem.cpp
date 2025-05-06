@@ -10,12 +10,15 @@
 #include <json/reader.h>
 #include <json/value.h>
 #include <string>
+#include <boost/beast.hpp>
 
 //这一层的数据处理，只需要考虑数据包部分，包头由MegNode进行自动封装
 LogicSystem::LogicSystem()
     : m_stop(false)
 {
-    RegisterCallBacks();
+    RegisterCallBacks();//自定义协议
+    RegistGet();//Http的Get请求
+    RegistPost();//Http的Post请求
     m_WorkerThread = std::thread(&LogicSystem::DealMsg, this);
 }
 
@@ -232,6 +235,55 @@ void LogicSystem::RegisterCallBacks()
                                                           std::placeholders::_1,
                                                           std::placeholders::_2);
 }
+
+
+
+bool LogicSystem::HandleGet(std::string path, std::shared_ptr<CSession> con) {
+    if (m_GetHandlers.find(path) == m_GetHandlers.end()) {
+        return false;
+    }
+
+    m_GetHandlers[path](con);
+    return true;
+}
+
+bool LogicSystem::HandlePost(std::string path, std::shared_ptr<CSession> con) {
+    if (m_PostHandlers.find(path) == m_PostHandlers.end()) {
+        return false;
+    }
+
+    m_PostHandlers[path](con);
+    return true;
+}
+
+void LogicSystem::RegistGet() {
+    m_GetHandlers.insert(std::make_pair("/", [](std::shared_ptr<CSession> connection){
+        boost::beast::ostream(connection->m_http_response.body()) << "Hello! " << std::endl;
+    }));
+
+    m_GetHandlers["/get_test"] = std::bind(&LogicSystem::Http_Get_Test,
+                                           this,
+                                           std::placeholders::_1);
+
+}
+
+void LogicSystem::RegistPost() {
+    // _post_handlers.insert(make_pair("/get_varifycode", handler));
+}
+
+void LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
+    boost::beast::ostream(connection->m_http_response.body()) << "receive get_test req " << std::endl;
+    int i = 0;
+    for (auto& elem : connection->_get_params) {
+        i++;
+        boost::beast::ostream(connection->m_http_response.body()) << "Hello!\n"
+                                                        "param" << i << " key is " << elem.first;
+        boost::beast::ostream(connection->m_http_response.body()) << ", " <<  " value is " << elem.second << std::endl;
+    }
+}
+
+
+
 
 //Server只提供下载请求（Server1->Server2），Client只提供上传请求(Client->Server)
 

@@ -101,7 +101,6 @@ int main()
 
 
             //Log in the Internet
-
             else if(net == "No" || net == "No" || net =="no"){
                 try{
                     std::cout << "Please enter the Net Address of Server: ";
@@ -112,26 +111,8 @@ int main()
                     boost::asio::io_context ioc;
                     boost::asio::ip::tcp::resolver resolver(ioc);
                     boost::asio::ip::tcp::socket sock(ioc);
-                    // auto endpoints = resolver.resolve(host, std::to_string(SERVERPORT));
 
-
-                    // auto endpoints = resolver.resolve(host, std::to_string(LOCALHOST_PORT));
-                    // if (endpoints.empty()) {
-                    //     std::cerr << "No endpoints resolved for host: " << host << std::endl;
-                    //     continue;
-                    // }
-
-                    // std::cout << "Resolved endpoints:" << std::endl;
-                    // for (const auto& ep : endpoints) {
-                    //     std::cout << "  " << ep.endpoint().address().to_string()
-                    //               << ":" << ep.endpoint().port() << std::endl;
-                    // }
-
-                    // boost::asio::connect(sock,
-                    //                      endpoints,
-                    //                      error);
-
-                    boost::asio::connect(sock, resolver.resolve(host, "80"), error);
+                    boost::asio::connect(sock, resolver.resolve(host, std::to_string(SERVERPORT)), error);
 
                     if (error) {
                         std::cerr << "connect failed, code is " << error.value() << " error msg is "
@@ -146,8 +127,16 @@ int main()
                     std::cout << "Connected from " << local_ep.address().to_string() << ":" << local_ep.port()
                               << " to " << remote_ep.address().to_string() << ":" << remote_ep.port() << std::endl;
 
+                    // 发送请求,否则Server端无法接收到连接成功信息
+                    std::string request = "GET /get_test HTTP/1.1\r\n"
+                                          "Host: " + host + "\r\n"
+                                          "Connection: closed\r\n\r\n";
+                    boost::asio::write(sock, boost::asio::buffer(request));
+
+                    std::cout<<"Send First Request Finished!" <<std::endl;
+
                     auto client = std::make_shared<Client>(ioc, std::move(sock), LOCALHOST_PORT , false);
-                    client->SendTestMsg();
+                    // client->SendTestMsg();
                     boost::asio::signal_set sigquit(ioc, SIGINT, SIGTERM);
                     sigquit.async_wait([&ioc, &client](auto, auto) {
                         ioc.stop();

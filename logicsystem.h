@@ -14,6 +14,8 @@
 typedef std::function<void(std::shared_ptr<CSession> session, const std::string &msg_data)>
     FunCallBack;
 
+typedef std::function<void(std::shared_ptr<CSession>)> HttpHandler;
+
 class CSession;
 
 class LogicSystem : public Singleton<LogicSystem>
@@ -24,11 +26,17 @@ class LogicSystem : public Singleton<LogicSystem>
 public:
     ~LogicSystem();
     void PostMesgToQue(std::shared_ptr<LogicNode> node);
+    bool HandleGet(std::string, std::shared_ptr<CSession>);
+    void RegistGet();
+    void RegistPost();
+    bool HandlePost(std::string, std::shared_ptr<CSession>);
 
 private:
     LogicSystem();
     void DealMsg();
     void RegisterCallBacks(); //注册：消息id <-> 回调函数
+
+    void Http_Get_Test(std::shared_ptr<CSession> connection);
 
     //发出的请求：
     //CLient->Server:上传文件，下载文件
@@ -94,4 +102,7 @@ private:
     std::condition_variable m_Consume; //能在某个条件成立之前 阻塞线程 并在条件成立时 唤醒线程的机制
     bool m_stop;
 
+    //http
+    std::map<std::string, HttpHandler> m_PostHandlers;
+    std::map<std::string, HttpHandler> m_GetHandlers;
 };

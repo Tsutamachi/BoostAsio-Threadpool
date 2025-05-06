@@ -31,6 +31,7 @@ CSession::CSession(boost::asio::io_context &io_context,
     , m_Owner(owner)
     , m_Role(role)
     , _close(false)
+    , m_http_buffer(2048)
 
 {
     // 初始化 UUID 和 FileIds
@@ -105,8 +106,10 @@ std::string CSession::get_Http_FileName(std::string HttpBuffer)
 
 void CSession::Start()
 {
-    //Edition1--非协程
+    //清空缓存区
+    m_http_buffer.consume(m_http_buffer.size());
     std::memset(m_Data, 0, MAX_LENGTH);
+
     boost::asio::async_read(m_Socket,
                             boost::asio::buffer(m_Data, HEAD_TOTAL_LEN),
                             std::bind(&CSession::HandleReadHead,
@@ -154,19 +157,39 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
 
         // 检测是否为 HTTP 请求（GET 或 POST）
         if (memcmp(m_RecevHeadNode->m_Data, "GET ", HEAD_TOTAL_LEN) == 0
-            || memcmp(m_RecevHeadNode->m_Data, "POST", HEAD_TOTAL_LEN) == 0) {
+                || memcmp(m_RecevHeadNode->m_Data, "POST", HEAD_TOTAL_LEN) == 0) {
             std::cout << "Detected HTTP protocol" << std::endl;
 
-            // this->HandleHttpProtocol(error, bytes_transferred, SharedSelf());
-            m_HttpBuffer.append(m_RecevHeadNode->m_Data, HEAD_TOTAL_LEN);
-            boost::asio::async_read_until(m_Socket,
-                                          boost::asio::dynamic_buffer(m_HttpBuffer),//动态缓冲默认续写而非覆盖
-                                          "\r\n\r\n",
-                                          std::bind(&CSession::HandleHttpProtocol,
-                                                    this,
-                                                    std::placeholders::_1,
-                                                    std::placeholders::_2,
-                                                    SharedSelf()));
+            //将请求类型导入到beast缓冲区
+            boost::asio::buffer_copy( m_http_buffer.prepare(HEAD_TOTAL_LEN),
+                                      boost::asio::buffer(m_Data, HEAD_TOTAL_LEN));
+            m_http_buffer.commit(HEAD_TOTAL_LEN);
+
+            // 初始化HTTP解析器
+            m_http_parser.emplace();//支持无参构造
+            m_http_parser->eager(true); // 允许部分解析
+
+            boost::beast::http::async_read(
+                        m_Socket,
+                        m_http_buffer,
+                        *m_http_parser,
+                        std::bind(&CSession::HandleHttpProtocol,
+                                  this,
+                                  std::placeholders::_1,
+                                  std::placeholders::_2,
+                                  shared_self)
+                        );
+
+
+            // m_HttpBuffer.append(m_RecevHeadNode->m_Data, HEAD_TOTAL_LEN);
+            // boost::asio::async_read_until(m_Socket,
+            //                               boost::asio::dynamic_buffer(m_HttpBuffer),//动态缓冲默认续写而非覆盖
+            //                               "\r\n\r\n",
+            //                               std::bind(&CSession::HandleHttpProtocol,
+            //                                         this,
+            //                                         std::placeholders::_1,
+            //                                         std::placeholders::_2,
+            //                                         SharedSelf()));
         } else {
             std::cout << "Detected custom protocol" << std::endl;
             this->HandleMyProtocol(error, bytes_transferred, SharedSelf());
@@ -231,68 +254,110 @@ void CSession::HandleHttpProtocol(const boost::system::error_code &error,
     try {
         if (error) {
             std::cerr << "HttpRequest_ReadLast fails:" << error.what() << std::endl;
+            // if (ec == boost::beast::http::error::end_of_stream) {
+            //     return Start(); // 保持连接
+            // }
             if (auto server = GetServerOwner()) {
                 server->ClearSession(m_Uuid); // Server 端清理
                 SocketClose();
             } else if (auto client = GetClientOwner()) {
                 client->HandleSessionClose(); // Client 端清理（需在 Client 类中实现）
             }
+            return;
         }
 
-        std::cout << "Http请求头：" << std::endl;
-        std::cout << m_HttpBuffer << std::endl;
+        m_http_response.version(m_http_request.version());//设置Http版本
+        m_http_response.keep_alive(false);//短连接
 
-        if(!memcmp(m_RecevHeadNode->m_Data, "GET ", HEAD_TOTAL_LEN))
-        {
-            //处理GET请求:找出GET请求的文件名，传输（做成一个通用函数）
-            std::string request_path = get_Http_FileName(m_HttpBuffer);
-            std::cout<<"FilePath: "<<request_path<<std::endl;
-
-            //不允许查看父目录
-            if (request_path.find("..") != std::string::npos) {
-                // send_http_error(403, "Forbidden");
+        if(m_http_request.method() == boost::beast::http::verb::get){
+            PreParseGetParam();
+            bool success = LogicSystem::GetInstance()->HandleGet(_get_url, shared_from_this());
+            if (!success) {
+                m_http_response.result(boost::beast::http::status::not_found);
+                m_http_response.set(boost::beast::http::field::content_type, "text/plain");
+                boost::beast::ostream(m_http_response.body()) << "url not found\r\n";
+                WriteResponse(SharedSelf());
                 return;
             }
 
-            std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nHello";
-            boost::asio::async_write(m_Socket,
-                              boost::asio::buffer(response));
-                    // SendHttp(response);
-
-            // FileTransfer::SendFile(this->m_Socket,request_path);
+            m_http_response.result(boost::beast::http::status::ok);
+            m_http_response.set(boost::beast::http::field::server, "GateServer");
+            WriteResponse(SharedSelf());
+            return;
         }
-        else
+
+        if(m_http_request.method() == boost::beast::http::verb::post){
+            // PreParseGetParam();
+            bool success = LogicSystem::GetInstance()->HandleGet(m_http_request.target(), shared_from_this());
+            if (!success) {
+                m_http_response.result(boost::beast::http::status::not_found);
+                m_http_response.set(boost::beast::http::field::content_type, "text/plain");
+                boost::beast::ostream(m_http_response.body()) << "url not found\r\n";
+                WriteResponse(SharedSelf());
+                return;
+            }
+
+            m_http_response.result(boost::beast::http::status::ok);
+            m_http_response.set(boost::beast::http::field::server, "GateServer");
+            WriteResponse(SharedSelf());
+            return;
+        }
+
+
         {
-            //POST的处理：找出length，接收数据后送给logicSystem做处理
-            size_t header_end = m_HttpBuffer.find("\r\n\r\n"); //返回的索引是指向第一个\r的索引
-            std::string headers = m_HttpBuffer.substr(0, header_end); //创造一个header副本
-            std::istringstream stream(headers);
-            std::string line;
-            unsigned long msg_len = 0;
+        //     if(!memcmp(m_RecevHeadNode->m_Data, "GET ", HEAD_TOTAL_LEN))
+        //     {
+        //         //处理GET请求:找出GET请求的文件名，传输（做成一个通用函数）
+        //         std::string request_path = get_Http_FileName(m_HttpBuffer);
+        //         std::cout<<"FilePath: "<<request_path<<std::endl;
 
-            //获取Msg部分的长度msg_len
-            while (std::getline(stream, line)) {
-                std::transform(line.begin(), line.end(), line.begin(), ::tolower); // 处理大小写问题
-                if (line.find("content-length:") != std::string::npos) {           //找到了
-                    // +2跳过“:”和“空格”
-                    msg_len = std::stoul(line.substr(line.find(":") + 2)); //string to unsigned long;
-                    break;
-                }
-            }
+        //         //不允许查看父目录
+        //         if (request_path.find("..") != std::string::npos) {
+        //             // send_http_error(403, "Forbidden");
+        //             return;
+        //         }
 
-            if (msg_len) {
-                m_RecevMsgNode = std::make_shared<RecevNode>(msg_len,
-                                                             0); //msg_id在读取信息里重新设置
+        //         std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nHello";
+        //         boost::asio::async_write(m_Socket,
+        //                                  boost::asio::buffer(response));
+        //         // SendHttp(response);
 
-                std::memset(m_Data, 0, HEAD_TOTAL_LEN);
-                boost::asio::async_read(m_Socket,
-                                        boost::asio::buffer(m_Data, msg_len), //m_Data[2048]  2kb
-                                        std::bind(&CSession::HandleHttpReadMeg,
-                                                  this,
-                                                  std::placeholders::_1,
-                                                  std::placeholders::_2,
-                                                  SharedSelf()));
-            }
+        //         // FileTransfer::SendFile(this->m_Socket,request_path);
+        //     }
+        //     else if(!memcmp(m_RecevHeadNode->m_Data, "POST", HEAD_TOTAL_LEN))
+        //     {
+        //         //POST的处理：找出length，接收数据后送给logicSystem做处理
+        //         size_t header_end = m_HttpBuffer.find("\r\n\r\n"); //返回的索引是指向第一个\r的索引
+        //         std::string headers = m_HttpBuffer.substr(0, header_end); //创造一个header副本
+        //         std::istringstream stream(headers);
+        //         std::string line;
+        //         unsigned long msg_len = 0;
+
+        //         //获取Msg部分的长度msg_len
+        //         while (std::getline(stream, line)) {
+        //             std::transform(line.begin(), line.end(), line.begin(), ::tolower); // 处理大小写问题
+        //             if (line.find("content-length:") != std::string::npos) {           //找到了
+        //                 // +2跳过“:”和“空格”
+        //                 msg_len = std::stoul(line.substr(line.find(":") + 2)); //string to unsigned long;
+        //                 break;
+        //             }
+        //         }
+
+        //         if (msg_len) {
+        //             m_RecevMsgNode = std::make_shared<RecevNode>(msg_len,
+        //                                                          0); //msg_id在读取信息里重新设置
+
+        //             std::memset(m_Data, 0, HEAD_TOTAL_LEN);
+        //             boost::asio::async_read(m_Socket,
+        //                                     boost::asio::buffer(m_Data, msg_len), //m_Data[2048]  2kb
+        //                                     std::bind(&CSession::HandleHttpReadMeg,
+        //                                               this,
+        //                                               std::placeholders::_1,
+        //                                               std::placeholders::_2,
+        //                                               SharedSelf()));
+        //         }
+        //     }
+
         }
 
     } catch (std::exception &e) {
@@ -300,10 +365,22 @@ void CSession::HandleHttpProtocol(const boost::system::error_code &error,
     }
 }
 
-void CSession::HandleHttpReadMeg(const boost::system::error_code &error,
-                                 size_t bytes_transferred,
-                                 std::shared_ptr<CSession> shared_self)
-{}
+void CSession::WriteResponse(std::shared_ptr<CSession> shared_self) {
+    // auto self = shared_from_this();
+
+    m_http_response.content_length(m_http_response.body().size());
+
+    boost::beast::http::async_write(
+        m_Socket,
+        m_http_response,
+        [shared_self](boost::beast::error_code ec, std::size_t)
+        {
+            shared_self->m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+            shared_self->deadline_.cancel();
+        });
+}
+
+
 
 void CSession::HandleReadMeg(const boost::system::error_code &error,
                              size_t bytes_transferred,
@@ -325,7 +402,7 @@ void CSession::HandleReadMeg(const boost::system::error_code &error,
         m_RecevMsgNode->m_CurLen += bytes_transferred;
 
         LogicSystem::GetInstance()->PostMesgToQue(
-            make_shared<LogicNode>(shared_from_this(), m_RecevMsgNode));
+                    make_shared<LogicNode>(shared_from_this(), m_RecevMsgNode));
 
         std::memset(m_Data, 0, HEAD_TOTAL_LEN);
         // m_RecevMsgNode->Clear();
@@ -381,11 +458,11 @@ void CSession::SendHttp(std::string &msg)
     std::string target = "HTTP/1.1 200 OK\r\n"
                          "Content-Type: text/plain\r\n"
                          "Content-Length: "
-                         + std::to_string(msg.size())
-                         + "\r\n"
-                           "Connection: keep-alive\r\n"
-                           "\r\n"
-                         + msg;
+            + std::to_string(msg.size())
+            + "\r\n"
+              "Connection: keep-alive\r\n"
+              "\r\n"
+            + msg;
     // boost::asio::async_write(m_Socket, buffer(target),
     //                          [this](boost::system::error_code ec, size_t) {
     //     if (ec) {
@@ -433,5 +510,112 @@ void CSession::HandleWrite(const boost::system::error_code &error,
         }
     } catch (std::exception &e) {
         std::cerr << "Exception code : " << e.what() << std::endl;
+    }
+}
+
+//char 转为16进制
+unsigned char ToHex(unsigned char x)
+{
+    return  x > 9 ? x + 55 : x + 48;
+}
+
+//16进制转为char
+unsigned char FromHex(unsigned char x)
+{
+    unsigned char y;
+    if (x >= 'A' && x <= 'Z') y = x - 'A' + 10;
+    else if (x >= 'a' && x <= 'z') y = x - 'a' + 10;
+    else if (x >= '0' && x <= '9') y = x - '0';
+    else assert(0);
+    return y;
+}
+
+std::string UrlEncode(const std::string& str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    for (size_t i = 0; i < length; i++)
+    {
+        //判断是否仅有数字和字母构成
+        if (isalnum((unsigned char)str[i]) ||
+            (str[i] == '-') ||
+            (str[i] == '_') ||
+            (str[i] == '.') ||
+            (str[i] == '~'))
+            strTemp += str[i];
+        else if (str[i] == ' ') //为空字符
+            strTemp += "+";
+        else
+        {
+            //其他字符需要提前加%并且高四位和低四位分别转为16进制
+            strTemp += '%';
+            strTemp += ToHex((unsigned char)str[i] >> 4);
+            strTemp += ToHex((unsigned char)str[i] & 0x0F);
+        }
+    }
+    return strTemp;
+}
+
+std::string UrlDecode(const std::string& str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    for (size_t i = 0; i < length; i++)
+    {
+        //还原+为空
+        if (str[i] == '+') strTemp += ' ';
+        //遇到%将后面的两个字符从16进制转为char再拼接
+        else if (str[i] == '%')
+        {
+            assert(i + 2 < length);
+            unsigned char high = FromHex((unsigned char)str[++i]);
+            unsigned char low = FromHex((unsigned char)str[++i]);
+            strTemp += high * 16 + low;
+        }
+        else strTemp += str[i];
+    }
+    return strTemp;
+}
+
+void CSession::PreParseGetParam() {
+    // https://search.bilibili.com/all?vt=54413020&keyword=llfc&from_source=webtop_search&spm_id_from=333.1007&search_source=5
+    // 提取 URI
+    auto uri = m_http_request.target();
+    // 查找查询字符串的开始位置（即 '?' 的位置）
+    auto query_pos = uri.find('?');
+    if (query_pos == std::string::npos) {
+        _get_url = uri;
+        return;
+    }
+    // search.bilibili.com/all
+    _get_url = uri.substr(0, query_pos);//包左不包右
+
+    //  vt=54413020&keyword=llfc&from_source=webtop_search&spm_id_from=333.1007&search_source=5
+    // key= value  &    key=value&       key=value        &        key=value   &          key=value
+    std::string query_string = uri.substr(query_pos + 1);
+
+    std::string key;
+    std::string value;
+    size_t pos = 0;
+    while ((pos = query_string.find('&')) != std::string::npos) {
+        // vt=54413020
+        auto pair = query_string.substr(0, pos);
+        size_t eq_pos = pair.find('=');
+        if (eq_pos != std::string::npos) {
+            key = UrlDecode(pair.substr(0, eq_pos)); // 假设有 url_decode 函数来处理URL解码
+            value = UrlDecode(pair.substr(eq_pos + 1));
+            _get_params[key] = value;
+        }
+    //（vt=54413020&）keyword=llfc&from_source=webtop_search&spm_id_from=333.1007&search_source=5
+        query_string.erase(0, pos + 1);
+    }
+    // 处理最后一个参数对（如果没有 & 分隔符）
+    if (!query_string.empty()) {
+        size_t eq_pos = query_string.find('=');
+        if (eq_pos != std::string::npos) {
+            key = UrlDecode(query_string.substr(0, eq_pos));
+            value = UrlDecode(query_string.substr(eq_pos + 1));
+            _get_params[key] = value;
+        }
     }
 }

@@ -7,6 +7,8 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <unordered_map>
+#include <boost/beast.hpp>
 
 class CServer;
 class MsgNode;
@@ -67,15 +69,15 @@ private:
                             size_t bytes_transferred,
                             std::shared_ptr<CSession> shared_self);
 
-    void HandleHttpReadMeg(const boost::system::error_code& error,
-                           size_t bytes_transferred,
-                           std::shared_ptr<CSession> shared_self);
+    void WriteResponse(std::shared_ptr<CSession> shared_self);
 
     void HandleReadMeg(const boost::system::error_code& error,
                        size_t bytes_transferred,
                        std::shared_ptr<CSession> shared_self);
 
     void HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self);
+
+    void PreParseGetParam();
 
     Role m_Role;   // 标识会话是 Server 还是 Client
     void* m_Owner; // 指向 CServer 或 Client 的指针（需类型安全转换）
@@ -95,5 +97,14 @@ private:
     bool m_FileIds[MAX_UPLOAD_NUM]; //true代表可用，false代表正在被占用
     // std::atomic<short> m_NextFileId{0};
 
-    std::string m_HttpBuffer;
+    // std::string m_HttpBuffer;
+    boost::beast::flat_buffer m_http_buffer;
+    boost::optional<boost::beast::http::request_parser<boost::beast::http::string_body>> m_http_parser;
+    boost::beast::http::request<boost::beast::http::dynamic_body> m_http_request;
+    boost::beast::http::response<boost::beast::http::dynamic_body> m_http_response;
+    std::string _get_url;
+    std::unordered_map<std::string, std::string> _get_params;
+    // The timer for putting a deadline on connection processing.
+    boost::asio::steady_timer deadline_{
+        m_Socket.get_executor(), std::chrono::seconds(60) };
 };
