@@ -63,8 +63,8 @@ void LogicSystem::DealMsg()
                     //           << std::endl;
                     auto call_back_iter = m_ClientFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
                     if (call_back_iter
-                        == m_ClientFunCallBacks
-                               .end()) { //在所有注册的回调函数中，没有与当前消息对应的回调函数，即当前MsgId违法
+                            == m_ClientFunCallBacks
+                            .end()) { //在所有注册的回调函数中，没有与当前消息对应的回调函数，即当前MsgId违法
                         m_MegQue.pop();
                         std::cout << "No compared CallBackFunction to handle this bag!"
                                   << std::endl;
@@ -75,7 +75,7 @@ void LogicSystem::DealMsg()
                     call_back_iter->second(meg_node->m_Session,
                                            std::string(meg_node->m_RecevNode->m_Data,
                                                        meg_node->m_RecevNode
-                                                           ->m_TotalLen)); //深度拷贝RecevNode中的Data
+                                                       ->m_TotalLen)); //深度拷贝RecevNode中的Data
                     m_MegQue.pop();
                 } else {
                     //Server的处理
@@ -238,6 +238,10 @@ void LogicSystem::RegisterCallBacks()
 
 
 
+
+
+
+
 bool LogicSystem::HandleGet(std::string path, std::shared_ptr<CSession> con) {
     if (m_GetHandlers.find(path) == m_GetHandlers.end()) {
         return false;
@@ -258,17 +262,18 @@ bool LogicSystem::HandlePost(std::string path, std::shared_ptr<CSession> con) {
 
 void LogicSystem::RegistGet() {
     m_GetHandlers.insert(std::make_pair("/", [](std::shared_ptr<CSession> connection){
-        boost::beast::ostream(connection->m_http_response.body()) << "Hello! " << std::endl;
-    }));
+                             boost::beast::ostream(connection->m_http_response.body()) << "Hello! " << std::endl;
+                         }));
 
     m_GetHandlers["/get_test"] = std::bind(&LogicSystem::Http_Get_Test,
                                            this,
                                            std::placeholders::_1);
-
 }
 
 void LogicSystem::RegistPost() {
-    // _post_handlers.insert(make_pair("/get_varifycode", handler));
+    m_PostHandlers["/post_verifyemail"] = std::bind(&LogicSystem::Http_Post_VerifyEmail,
+                                                    this,
+                                                    std::placeholders::_1);
 }
 
 void LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
@@ -277,10 +282,37 @@ void LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
     for (auto& elem : connection->_get_params) {
         i++;
         boost::beast::ostream(connection->m_http_response.body()) << "Hello!\n"
-                                                        "param" << i << " key is " << elem.first;
+                                                                     "param" << i << " key is " << elem.first;
         boost::beast::ostream(connection->m_http_response.body()) << ", " <<  " value is " << elem.second << std::endl;
     }
 }
+
+void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
+    auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
+    std::cout << "receive body is " << body_str << std::endl;
+    connection->m_http_response.set(boost::beast::http::field::content_type, "text/json");
+    Json::Value root;
+    Json::Reader reader;
+    Json::Value src_root;
+    bool parse_success = reader.parse(body_str, src_root);
+    if (!parse_success) {
+        std::cout << "Failed to parse JSON data!" << std::endl;
+        root["error"] = ErrorCodes::Error_Json;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }
+
+    auto email = src_root["email"].asString();
+    std::cout << "email is " << email << std::endl;
+    root["error"] = 0;
+    root["email"] = src_root["email"];
+    std::string jsonstr = root.toStyledString();
+    boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+    // return true;
+}
+
+
 
 
 
@@ -313,8 +345,8 @@ void LogicSystem::ServerSendTest(std::shared_ptr<CSession> session, const std::s
                  root); //因为这里传入的参数是string,所以不需要通过buffer首地址和长度来构造string
 
     std::cout /*<< "Session: " << session->m_Uuid << std::endl*/
-        << "received test1 from client" << std::endl
-        << "test message data is     :" << root["data"].asString() << std::endl;
+            << "received test1 from client" << std::endl
+            << "test message data is     :" << root["data"].asString() << std::endl;
 
     std::string return_str = root.toStyledString();
     session->Send(return_str.data(), return_str.size(), Back);
@@ -455,16 +487,16 @@ void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const s
         //                                      session);
         try {
             FileManagement::GetInstance()
-                ->AddFile(session->GetUuid(),
-                          fileid,
-                          std::move(std::make_unique<FileToReceve>(
+                    ->AddFile(session->GetUuid(),
                               fileid,
-                              session->GetUuid(), //Server给传输数据的Client分配的Uuid
-                              filename,
-                              filesize,
-                              filenum,
-                              filehash,
-                              session)));
+                              std::move(std::make_unique<FileToReceve>(
+                                            fileid,
+                                            session->GetUuid(), //Server给传输数据的Client分配的Uuid
+                                            filename,
+                                            filesize,
+                                            filenum,
+                                            filehash,
+                                            session)));
             std::cout << "FiletoRecev destructed!" << std::endl;
         } catch (const std::runtime_error &e) {
             std::cerr << "AddFile failed: " << e.what() << std::endl;

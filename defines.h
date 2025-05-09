@@ -60,6 +60,12 @@ enum MSG_IDS {
     Http_GET = 3001,
     Http_POST = 3002,
 
-    MSGID_MAX = Http_POST,
+    MSGID_MAX = Http_POST,//记录MsgId中的最大值，来做有效性判定
     MSGID_MIN = Test
+};
+
+enum ErrorCodes {
+    Success = 0,
+    Error_Json = 4001,  //Json解析错误
+    RPCFailed = 4002,  //RPC请求错误
 };

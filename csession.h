@@ -61,6 +61,9 @@ private:
                         size_t bytes_transferred,
                         std::shared_ptr<CSession> shared_self);
 
+
+    void StartHttpProcessing(std::shared_ptr<CSession> self);
+
     void HandleMyProtocol(const boost::system::error_code& error,
                           size_t bytes_transferred,
                           std::shared_ptr<CSession> shared_self);
@@ -99,7 +102,7 @@ private:
 
     // std::string m_HttpBuffer;
     boost::beast::flat_buffer m_http_buffer;
-    boost::optional<boost::beast::http::request_parser<boost::beast::http::string_body>> m_http_parser;
+    boost::optional<boost::beast::http::request_parser<boost::beast::http::dynamic_body>> m_http_parser;
     boost::beast::http::request<boost::beast::http::dynamic_body> m_http_request;
     boost::beast::http::response<boost::beast::http::dynamic_body> m_http_response;
     std::string _get_url;

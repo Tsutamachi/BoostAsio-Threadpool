@@ -37,6 +37,7 @@ private:
     void RegisterCallBacks(); //注册：消息id <-> 回调函数
 
     void Http_Get_Test(std::shared_ptr<CSession> connection);
+    void Http_Post_VerifyEmail(std::shared_ptr<CSession> connection);
 
     //发出的请求：
     //CLient->Server:上传文件，下载文件

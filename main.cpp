@@ -5,6 +5,8 @@
 #include "servicepool.h"
 #include <iostream>
 #include <regex>
+#include <json/value.h>
+#include <json/reader.h>
 
 int main()
 {
@@ -112,7 +114,7 @@ int main()
                     boost::asio::ip::tcp::resolver resolver(ioc);
                     boost::asio::ip::tcp::socket sock(ioc);
 
-                    boost::asio::connect(sock, resolver.resolve(host, std::to_string(SERVERPORT)), error);
+                    boost::asio::connect(sock, resolver.resolve(host, std::to_string(LOCALHOST_PORT)), error);
 
                     if (error) {
                         std::cerr << "connect failed, code is " << error.value() << " error msg is "
@@ -128,6 +130,15 @@ int main()
                               << " to " << remote_ep.address().to_string() << ":" << remote_ep.port() << std::endl;
 
                     // 发送请求,否则Server端无法接收到连接成功信息
+                    // Json::Value re;
+                    // re["email"] = "2405150500@qq.com";
+                    // std::string tar = re.toStyledString();
+
+                    // std::string request = "POST /get_varifycode HTTP/1.1\r\n"
+                    //                       "Host: " + host + "\r\n"
+                    //                       "Connection: closed\r\n\r\n"
+                    //                         + tar;
+
                     std::string request = "GET /get_test HTTP/1.1\r\n"
                                           "Host: " + host + "\r\n"
                                           "Connection: closed\r\n\r\n";
