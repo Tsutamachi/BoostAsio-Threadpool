@@ -80,7 +80,7 @@ private:
     // std::condition_variable m_VerifyFinish;   //通知Hash验证的结束
 
     std::vector<HashRetransmitData> m_HashDatas; //用来存储被检查出Hash有问题的包
-    std::condition_variable m_Rewrite;           //通知重写因为Hash验证失败导致的重写
+    std::condition_variable m_CVRewrite;           //通知重写因为Hash验证失败导致的重写
     unsigned int m_RewriteIndex;                 //下一个检测hash的序号
 
     //文件持久化操作

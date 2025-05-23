@@ -10,12 +10,15 @@ class CServer
     friend class CSession;
 
 public:
-    CServer(boost::asio::io_context& ioc, short port);
+    CServer(boost::asio::io_context& ioc, short port, std::string name);
     ~CServer();
     void ClearSession(std::string uuid);
     void RequestUpload();   //本地：本地文件 ->上传<- 到Data文件夹，并加密保存
     void RequestDownload(); //本地：从Data文件夹中 ->下载<- 解密文件，并持久化为普通文件---这里需要检查Client端对Server端的全线
     void HandleSharedLink(); //还要处理接收分享文件请求，向对方Server ->请求下载<- 的情况--Client端下载和Server端请求下载就分开写吧？
+
+
+    std::string m_ServerName; //Server登陆时的账号
 
 private:
     void StartAccept();
@@ -29,6 +32,5 @@ private:
     std::map<std::string, std::shared_ptr<CSession>> m_sessions;
 
     int m_ServerId;           //DB中自动分配的Id
-    std::string m_ServerName; //Server登陆时的账号
     //需要修改密码和口令的时候，再从数据库中提取？
 };

@@ -8,8 +8,12 @@
 #include <json/value.h>
 #include <json/reader.h>
 
+using namespace boost::asio;
+using ip::tcp;
+
 int main()
 {
+
     bool flag = true;
     while (flag) {
         //选择启动角色--Server or Client
@@ -23,7 +27,10 @@ int main()
             try {
                 auto& pool = ServicePool::GetInstance();
                 boost::asio::io_context ioc; //用于监测退出信号
-                auto server = std::make_shared<CServer>(ioc, SERVERPORT);
+
+                //这里调用数据库
+                std::string Servername = "张渝";
+                auto server = std::make_shared<CServer>(ioc, SERVERPORT,Servername);
 
                 boost::asio::signal_set sigquit(
                             ioc,
@@ -33,6 +40,7 @@ int main()
                     ioc.stop();
                     pool.Stop();
                     // server.~CServer();
+                    //    应依赖智能指针自动管理资源。
                 });
 
                 ioc.run();
@@ -92,7 +100,6 @@ int main()
                     sigquit.async_wait([&ioc, &client](auto, auto) {
                         ioc.stop();
                         //这里可以做强制退出后的资源处理
-                        // client.~Client();
                     });
                     ioc.run();
                     flag = false;
@@ -133,26 +140,47 @@ int main()
                     // Json::Value re;
                     // re["email"] = "2405150500@qq.com";
                     // std::string tar = re.toStyledString();
-
-                    // std::string request = "POST /get_varifycode HTTP/1.1\r\n"
+                    // std::string request = "POST /post_verifyemail HTTP/1.1\r\n"
                     //                       "Host: " + host + "\r\n"
-                    //                       "Connection: closed\r\n\r\n"
-                    //                         + tar;
+                    //                       "Content-Type: application/json\r\n"
+                    //                       "Content-Length: " + std::to_string(tar.size()) + "\r\n"
+                    //                       "Connection: closed\r\n"
+                    //                       "\r\n"
+                    //                       + tar;
 
-                    std::string request = "GET /get_test HTTP/1.1\r\n"
+                    std::string request = "GET /get_login HTTP/1.1\r\n"
                                           "Host: " + host + "\r\n"
                                           "Connection: closed\r\n\r\n";
+
                     boost::asio::write(sock, boost::asio::buffer(request));
 
-                    std::cout<<"Send First Request Finished!" <<std::endl;
+                    // 读取完整响应
+                    streambuf response;
+                    std::string body;
+
+                    // 读取直到连接关闭
+                    boost::system::error_code ec;
+                    while (boost::asio::read(sock, response, transfer_all(), ec)) {
+                        body += std::string(buffers_begin(response.data()),
+                                           buffers_end(response.data()));
+                        response.consume(response.size());
+                    }
+
+                    if (ec && ec != error::eof) throw boost::system::system_error(ec);
+
+                    // 提取数据体部分（从第一个空行后开始）
+                    size_t pos = body.find("\r\n\r\n");
+                    if (pos != std::string::npos) {
+                        body = body.substr(pos + 4);
+                    }
+
+                    std::cout <<body << std::endl;
 
                     auto client = std::make_shared<Client>(ioc, std::move(sock), LOCALHOST_PORT , false);
-                    // client->SendTestMsg();
                     boost::asio::signal_set sigquit(ioc, SIGINT, SIGTERM);
                     sigquit.async_wait([&ioc, &client](auto, auto) {
                         ioc.stop();
                         //这里可以做强制退出后的资源处理
-                        // client.~Client();
                     });
                     ioc.run();
 

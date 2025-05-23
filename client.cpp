@@ -6,6 +6,7 @@
 #include <iostream>
 #include <json/json.h>
 #include <json/value.h>
+#include "HttpMgr.h"
 
 using namespace boost::asio::ip;
 
@@ -13,6 +14,7 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket
     : m_Ioc(ioc)
     , m_port(port)
     , m_NowSend(0)
+    , m_NowDownload(0)
     , is_Uploading(false)
     , is_Downloading(false)
     , m_CurrentSeq(0)
@@ -23,12 +25,15 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket
                                      CSession::Role::Client,
                                      std::move(socket))) //只有一个Session,可以直接初始化列表了
 {
+    HttpMgr::GetInstance();
     std::cout << "Client start success, listen on port : " << m_port << std::endl;
     m_Session->Start();
 
     // 启动 DealSendQueue 线程
     std::thread sendThread(&Client::DealSendQueue, this);
+    std::thread downloadThread(&Client::DealDownloadQueue, this);
     sendThread.detach(); // 或者使用 detach()，根据需求决定
+    downloadThread.detach();
 
     Greating();
 }
@@ -37,6 +42,7 @@ Client::Client(boost::asio::io_context &ioc, boost::asio::ip::tcp::socket socket
     : m_Ioc(ioc)
     , m_port(port)
     , m_NowSend(0)
+    , m_NowDownload(0)
     , is_Uploading(false)
     , is_Downloading(false)
     , m_CurrentSeq(0)
@@ -53,7 +59,9 @@ Client::Client(boost::asio::io_context &ioc, boost::asio::ip::tcp::socket socket
 
     // 启动 DealSendQueue 线程
     std::thread sendThread(&Client::DealSendQueue, this);
+    std::thread downloadThread(&Client::DealDownloadQueue, this);
     sendThread.detach(); // 或者使用 detach()，根据需求决定
+    downloadThread.detach();
 
     Greating();
 }
@@ -192,7 +200,7 @@ void Client::RequestUpload()
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 清除输入缓冲区的换行符
     std::getline(std::cin, filepath);
 
-    std::unique_lock<std::mutex> lock(m_Mutex);
+    std::unique_lock<std::mutex> lock(m_SendMutex);
     m_SendQueue.push(filepath);
     if (m_SendQueue.size() == 1) {
         lock.unlock();
@@ -203,16 +211,26 @@ void Client::RequestUpload()
 void Client::RequestDownload()
 {
     //从用户空间中指定文件，把在Client端中的路径，传入到Server中，Server查表找到对应被加密的文件
-    //todo:只能在确定用户空间文件管理表后才能写
+    std::string downloadpath;
+    std::cout << "Please enter the path of file you want to download: ";
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 清除输入缓冲区的换行符
+    std::getline(std::cin, downloadpath);
+
+    std::unique_lock<std::mutex> lock(m_DownloadMutex);
+    m_DownloadQueue.push(downloadpath);
+    if (m_DownloadQueue.size() == 1) {
+        lock.unlock();
+        m_CVDownloadQue.notify_one();
+    }
 }
 
 void Client::DealSendQueue()
 {
     while (true) {
-        std::unique_lock<std::mutex> unique_lk(m_Mutex);
+        std::unique_lock<std::mutex> unique_lk(m_SendMutex);
 
         // 条件：队列为空 或 当前发送数≥5 时等待
-        while (m_SendQueue.empty() || m_NowSend >= 5) {
+        while (m_SendQueue.empty() || m_NowSend >= MAX_UPLOAD_NUM) {
             m_CVSendQue.wait(unique_lk);
         }
 
@@ -239,13 +257,37 @@ void Client::DealSendQueue()
     }
 }
 
-void Client::SendTestMsg()
+void Client::DealDownloadQueue()
 {
-    std::string request = "GET / HTTP/1.1\r\n"
-                          "Host: " + m_Host + "\r\n"
-                          "Connection: keep-alive\r\n\r\n";
+    while (true) {
+        std::unique_lock<std::mutex> unique_lk(m_DownloadMutex);
 
-    boost::asio::write(m_Session->m_Socket, boost::asio::buffer(request));
+        // 条件：队列为空 或 当前发送数≥5 时等待
+        while (m_DownloadQueue.empty() || m_NowDownload >= MAX_DOWNLOAD_NUM) {
+            m_CVDownloadQue.wait(unique_lk);
+        }
+
+        std::string filepath = m_DownloadQueue.front();
+        m_DownloadQueue.pop();
+
+        if (filepath.empty()) {
+            continue;
+        }
+        m_NowDownload++;
+        unique_lk.unlock();
+
+        Json::Value Msg;
+        Msg["filepath"] = filepath;
+        std::string target = Msg.toStyledString();
+
+        //直接发送请求信息到LogicSystem中,不经过Session中转
+        std::shared_ptr RecevMsgNode = std::make_shared<RecevNode>(target.size(), FileDownloadRequest);
+        memcpy(RecevMsgNode->m_Data, target.data(), target.size());
+        LogicSystem::GetInstance()->PostMesgToQue(make_shared<LogicNode>(m_Session, RecevMsgNode));
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
 }
 
 void Client::EchoTest()

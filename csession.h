@@ -32,6 +32,7 @@ public:
     ~CSession();
 
     boost::asio::ip::tcp::socket& GetSocket();
+
     std::string& GetUuid();
 
     void Start();
@@ -100,7 +101,7 @@ private:
     bool m_FileIds[MAX_UPLOAD_NUM]; //true代表可用，false代表正在被占用
     // std::atomic<short> m_NextFileId{0};
 
-    // std::string m_HttpBuffer;
+    //以下是Http相关的成员
     boost::beast::flat_buffer m_http_buffer;
     boost::optional<boost::beast::http::request_parser<boost::beast::http::dynamic_body>> m_http_parser;
     boost::beast::http::request<boost::beast::http::dynamic_body> m_http_request;

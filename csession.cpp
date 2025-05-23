@@ -14,7 +14,7 @@
 #include <json/reader.h>
 #include <json/value.h>
 #include <sstream>
-#include "filetransfer.h"
+// #include "filetransfer.h"
 
 // using boost::asio::awaitable;
 // using boost::asio::co_spawn;
@@ -181,9 +181,7 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
     }
 }
 
-int q=1;
 void CSession::StartHttpProcessing(std::shared_ptr<CSession> self) {
-    std::cout<<"Processing: "<<q<<std::endl;
     // m_http_parser->body_limit(1024 * 1024); // 按需设置
 
     // 持续异步读取直到完整请求头到达
@@ -197,7 +195,7 @@ void CSession::StartHttpProcessing(std::shared_ptr<CSession> self) {
             StartHttpProcessing(self);
             return;
         }
-        std::cout<<"Processing has been finished. turn to HttpProtocol "<<std::endl;
+        // std::cout<<"Processing has been finished. turn to HttpProtocol "<<std::endl;
         HandleHttpProtocol(ec, bytes, self);
     }
     );
@@ -273,8 +271,8 @@ void CSession::HandleHttpProtocol(const boost::system::error_code &error,
         m_http_request = m_http_parser->get();
 
         // 打印完整的HTTP请求
-        std::cout << "Received HTTP request:\n"
-                  << m_http_parser->get() << std::endl;
+        // std::cout << "Received HTTP request:\n"
+        //           << m_http_parser->get() << std::endl;
 
         m_http_response.version(m_http_request.version());//设置Http版本
         m_http_response.keep_alive(false);//短连接
@@ -282,7 +280,7 @@ void CSession::HandleHttpProtocol(const boost::system::error_code &error,
         if(m_http_request.method() == boost::beast::http::verb::get){
             // std::cout<<"CSession.HandleHttpProtocol Triggerred!"<<std::endl;
             PreParseGetParam();
-            std::cout<<"HttpProtocol: _get_url = "<<_get_url<<std::endl;
+            // std::cout<<"HttpProtocol: _get_url = "<<_get_url<<std::endl;
             bool success = LogicSystem::GetInstance()->HandleGet(_get_url, shared_from_this());
             if (!success) {
                 m_http_response.result(boost::beast::http::status::not_found);
@@ -300,7 +298,7 @@ void CSession::HandleHttpProtocol(const boost::system::error_code &error,
 
         else if(m_http_request.method() == boost::beast::http::verb::post){
             PreParseGetParam();
-            std::cout<<"HttpProtocol: _get_url = "<<_get_url<<std::endl;
+            // std::cout<<"HttpProtocol: _get_url = "<<_get_url<<std::endl;
             bool success = LogicSystem::GetInstance()->HandlePost(m_http_request.target(), shared_from_this());
             if (!success) {
                 m_http_response.result(boost::beast::http::status::not_found);

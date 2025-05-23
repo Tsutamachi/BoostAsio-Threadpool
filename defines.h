@@ -1,4 +1,5 @@
 #pragma once
+//mydefins.h
 //Server、Client的监听端口
 #define SERVERPORT 1220
 #define CLIENTPORT 721
@@ -30,6 +31,7 @@
 
 //一个Client并行上传文件的上限数
 #define MAX_UPLOAD_NUM 5
+#define MAX_DOWNLOAD_NUM 5
 
 //Lock
 #define MAX_SENDQUE 100000 //发送队列的最大长度
@@ -64,8 +66,48 @@ enum MSG_IDS {
     MSGID_MIN = Test
 };
 
+
+//const.h
+#include <functional>
 enum ErrorCodes {
     Success = 0,
-    Error_Json = 4001,  //Json解析错误
-    RPCFailed = 4002,  //RPC请求错误
+    Error_Json = 1001,  //Json解析错误
+    RPCFailed = 1002,   //RPC请求错误
+    VarifyExpired = 1003,//验证码过期
+    VarifyCodeErr = 1004,
+    UserExist = 1005,
+    PasswdErr = 1006,
+    EmailNotMatch = 1007,
+    PasswdUpFailed = 1008,
+    PasswdInvalid = 1009,
+    TokenInvalid = 1010,
+    UidInvalid = 1011,
+};
+class Defer
+{
+public:
+    Defer(std::function<void()> func)
+        : func_(func)
+    {}
+
+    ~Defer() { func_(); }
+
+private:
+    std::function<void()> func_;
+};
+
+//global.h
+#include <functional>
+extern std::function<void> repolish;
+enum ReqId {
+    ID_GET_VARIFY_CODE = 1001, //获取验证码
+    ID_REG_USER = 1002,        //注册用户
+};
+enum ErrorCode {
+    SUCCESS = 0,
+    ERR_JSON = 1, //Json解析失败
+    ERR_NETWORK = 2,
+};
+enum Modules {
+    REGISTERMOD = 0,
 };

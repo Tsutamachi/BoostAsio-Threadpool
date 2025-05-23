@@ -11,6 +11,7 @@
 #include <json/value.h>
 #include <string>
 #include <boost/beast.hpp>
+#include "VerifyGrpcClient.h"
 
 //这一层的数据处理，只需要考虑数据包部分，包头由MegNode进行自动封装
 LogicSystem::LogicSystem()
@@ -139,14 +140,10 @@ void LogicSystem::DealMsg()
 
 void LogicSystem::RegisterCallBacks()
 {
-    //后续可拓展消息id对应的回调函数
+    //Client测试通信
+{
 
     m_ClientFunCallBacks[Test] = std::bind(&LogicSystem::ClientSendTest,
-                                           this,
-                                           std::placeholders::_1,
-                                           std::placeholders::_2);
-
-    m_ServerFunCallBacks[Test] = std::bind(&LogicSystem::ServerReceiveTest,
                                            this,
                                            std::placeholders::_1,
                                            std::placeholders::_2);
@@ -155,11 +152,12 @@ void LogicSystem::RegisterCallBacks()
                                            this,
                                            std::placeholders::_1,
                                            std::placeholders::_2);
+
     m_ClientFunCallBacks[Back] = std::bind(&LogicSystem::ClientReturn,
                                            this,
                                            std::placeholders::_1,
                                            std::placeholders::_2);
-
+}
     m_ClientFunCallBacks[FileUploadRequest] = std::bind(&LogicSystem::RequestUpload,
                                                         this,
                                                         std::placeholders::_1,
@@ -236,11 +234,21 @@ void LogicSystem::RegisterCallBacks()
                                                           std::placeholders::_2);
 }
 
+void LogicSystem::RegistGet() {
+    m_GetHandlers.insert(std::make_pair("/get_login", [](std::shared_ptr<CSession> connection){
+        boost::beast::ostream(connection->m_http_response.body()) << "Server :"<<connection->GetServerOwner()->m_ServerName << std::endl;
+    }));
 
+    m_GetHandlers["/get_test"] = std::bind(&LogicSystem::Http_Get_Test,
+                                           this,
+                                           std::placeholders::_1);
+}
 
-
-
-
+void LogicSystem::RegistPost() {
+    m_PostHandlers["/post_verifyemail"] = std::bind(&LogicSystem::Http_Post_VerifyEmail,
+          this,
+          std::placeholders::_1);
+}
 
 bool LogicSystem::HandleGet(std::string path, std::shared_ptr<CSession> con) {
     if (m_GetHandlers.find(path) == m_GetHandlers.end()) {
@@ -260,22 +268,6 @@ bool LogicSystem::HandlePost(std::string path, std::shared_ptr<CSession> con) {
     return true;
 }
 
-void LogicSystem::RegistGet() {
-    m_GetHandlers.insert(std::make_pair("/", [](std::shared_ptr<CSession> connection){
-                             boost::beast::ostream(connection->m_http_response.body()) << "Hello! " << std::endl;
-                         }));
-
-    m_GetHandlers["/get_test"] = std::bind(&LogicSystem::Http_Get_Test,
-                                           this,
-                                           std::placeholders::_1);
-}
-
-void LogicSystem::RegistPost() {
-    m_PostHandlers["/post_verifyemail"] = std::bind(&LogicSystem::Http_Post_VerifyEmail,
-                                                    this,
-                                                    std::placeholders::_1);
-}
-
 void LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
     boost::beast::ostream(connection->m_http_response.body()) << "receive get_test req " << std::endl;
     int i = 0;
@@ -289,7 +281,7 @@ void LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
 
 void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
     auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
-    std::cout << "receive body is " << body_str << std::endl;
+    std::cout << "receive body is :\n" << body_str << std::endl;
     connection->m_http_response.set(boost::beast::http::field::content_type, "text/json");
     Json::Value root;
     Json::Reader reader;
@@ -303,35 +295,32 @@ void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
         // return true;
     }
 
+    if (!src_root.isMember("email")) {
+        std::cout << "Failed to parse JSON data!" << std::endl;
+        root["error"] = ErrorCodes::Error_Json;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }
     auto email = src_root["email"].asString();
+    GetVarifyRsp rsp = VerifyGrpcClient::GetInstance()->GetVarifyCode(email);
     std::cout << "email is " << email << std::endl;
-    root["error"] = 0;
+    root["error"] = rsp.error();
     root["email"] = src_root["email"];
     std::string jsonstr = root.toStyledString();
     boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
     // return true;
 }
 
-
-
-
-
-
 //Server只提供下载请求（Server1->Server2），Client只提供上传请求(Client->Server)
 
-//Client函数   Client端发出Test
+//Client函数   处理从Client对象发出的Test包
 //收: Test
 //发：Echo
 void LogicSystem::ClientSendTest(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
     std::cout << "Received client send test1." << std::endl;
     session->Send(msg_data.data(), msg_data.size(), Echo);
-}
-
-
-
-void LogicSystem::ServerReceiveTest(std::shared_ptr<CSession> session, const std::string &msg_data){
-    std::cout<<"Server Received Test"<<std::endl;
 }
 
 //Server函数   Server将Test请求包回显给Client
@@ -364,7 +353,8 @@ void LogicSystem::ClientReturn(std::shared_ptr<CSession> session, const std::str
               << "message data is           :" << root["data"].asString() << std::endl;
 }
 
-//Client函数      Client端提出上传请求
+
+//Client函数      处理Client端的上传请求
 //收：FileUploadRequest
 //发：RequestFileId
 void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::string &msg_data)
@@ -373,7 +363,6 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         //读取路径
         Json::Reader reader;
         Json::Value Msg;
-        reader.parse(msg_data, Msg);
         if (!reader.parse(msg_data, Msg)) {
             std::cerr << "RequestUpload JSON parse error" << std::endl;
             return;
@@ -393,14 +382,12 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         if (!file) {
             throw std::runtime_error("Client open file failed: " + filepath);
         }
-
-        //获取文件名
-        std::filesystem::path pathObj(filepath);
-        std::string filename = pathObj.filename().string();
-
-        // 获取文件大小
         unsigned int file_size = file.tellg();
         file.seekg(0);
+
+        //获取文件名（并非路径）
+        std::filesystem::path pathObj(filepath);
+        std::string filename = pathObj.filename().string();
 
         //计算总包数
         // unsigned int total_packets = (file_size + FILE_DATA_LEN - 1) / FILE_DATA_LEN;
@@ -408,8 +395,10 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         if ((file_size % FILE_DATA_LEN))
             total_packets++;
 
-        if (!file.is_open())
+        if (!file.is_open()){
             file.close();
+            std::cout<<"LogicSystem::RequestUpload: file open false!"<<std::endl;
+        }
 
         session->GetClientOwner()->m_TempFile = std::make_shared<FileToSend>(filepath,
                                                                              filename,
@@ -435,11 +424,7 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
     }
 }
 
-//Client、RecevServer函数   提出下载请求
-//发：FileDownRequest
-void LogicSystem::RequestDownload(std::shared_ptr<CSession> session, const std::string &msg_data) {}
-
-//Server函数      处理上传请求
+//Server函数      处理Client端的上传请求
 //收：RequestFileId
 //发：StartUpload（true）        RejectUpload（flase）
 void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const std::string &msg_data)
@@ -477,21 +462,13 @@ void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const s
 
     } else {
         //创建File对象用于接收文件数据包和持久化文件
-        // std::unique_ptr<FileToReceve> file
-        //     = std::make_unique<FileToReceve>(fileid,
-        //                                      session->GetUuid(), //Server给传输数据的Client分配的Uuid
-        //                                      filename,
-        //                                      filesize,
-        //                                      filenum,
-        //                                      filehash,
-        //                                      session);
         try {
             FileManagement::GetInstance()
                     ->AddFile(session->GetUuid(),
                               fileid,
                               std::move(std::make_unique<FileToReceve>(
                                             fileid,
-                                            session->GetUuid(), //Server给传输数据的Client分配的Uuid
+                                            session->GetUuid(),
                                             filename,
                                             filesize,
                                             filenum,
@@ -520,7 +497,7 @@ void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const s
 //收：RejectUpload
 void LogicSystem::HandleRejectUpload(std::shared_ptr<CSession> session, const std::string &msg_data)
 {
-    // 不需要关闭文件->文件还没创建
+    session->GetClientOwner()->m_TempFile->m_FileUploadStream.close();
     std::cerr << "Upload Request has been rejected by peer." << std::endl;
 }
 
@@ -555,8 +532,10 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
     }
 
     std::cout << "Start Upload File :" << filetosend->m_FileName << std::endl << std::endl;
-    if (!filetosend->m_FileUploadStream.is_open()) {
-        filetosend->m_FileUploadStream.open(filetosend->m_FilePath);
+
+    if (!filetosend->m_FileUploadStream.is_open()){
+        filetosend->m_FileUploadStream.open(filetosend->m_FilePath, std::ios::binary);
+        std::cout<<"LogicSystem::RequestUpload: file open false!"<<std::endl;
     }
 
     std::vector<char> dataBuffer(FILE_DATA_LEN);
@@ -576,7 +555,7 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
         Msg["FileId"] = fileid;
         // Msg["Sequence"] = static_cast<Json::UInt>(seq);
         Msg["Sequence"] = seq;
-        // Base64 编码(利用openssl/BoostAsio库中函数自己实现编码).Json不能传送二进制文件，只能传文本
+        // Data为Base64 编码(利用openssl/BoostAsio库中函数自己实现编码).Json不能传送二进制文件，只能传文本
         Msg["Data"] = base64_encode(dataBuffer.data(), bytes_read);
 
         std::string target = Msg.toStyledString();
@@ -620,18 +599,19 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
             std::cout << "File eof!" << std::endl;
         }
     }
-
-    //发送完后需要再接收一个Server确认文件完整的包。在获得hash确认完整后再在Client的File队列中删除该File
+    //关闭文件
     if (filetosend->m_FileUploadStream.is_open()) {
         filetosend->m_FileUploadStream.close();
     }
+
+        //发送完后需要再接收一个Server确认文件完整的包。在获得hash确认完整后再在Client的File队列中删除该File
     Json::Value Finish;
     Finish["FileId"] = fileid;
     Finish["Filefinish"] = 1;
     std::string target1 = Finish.toStyledString();
     std::cout << "Send finished." << std::endl;
     session->Send(target1.data(), target1.size(), FileFinish);
-    //如果时间内Server没有收到FileFinish,要重发这个包(boostasio中有定时器)
+    //如果时间内（20s）Server没有收到FileFinish,要重发这个包(boostasio中有定时器)
     filetosend->m_FinishTimer = std::make_shared<boost::asio::steady_timer>(session->m_IoContext);
     filetosend->StartFinishTimer(session);
 }
@@ -706,7 +686,8 @@ void LogicSystem::ServerHandleFinalBag(std::shared_ptr<CSession> session,
 
         Json::Value Msg;
         std::cout << "Missing bag sequences :" << std::endl;
-        for (auto seq : file->m_MissingSeqs) {
+        // for (auto seq : file->m_MissingSeqs) {
+        for (auto seq : MissingSeqs) {
             std::cout << seq << "'\t";
             Msg["MissingBags"].append(seq); //Json数组
         }
@@ -717,7 +698,7 @@ void LogicSystem::ServerHandleFinalBag(std::shared_ptr<CSession> session,
         session->Send(target.data(), target.size(), TellLostBag);
     } else {
         //没有缺包，hashMD5检测完整性-complete
-        if (!file->m_FileSaveStream.is_open())
+        if (file->m_FileSaveStream.is_open())
             file->m_FileSaveStream.close();
 
         //FileSavePath后期可能需要改正
@@ -764,7 +745,7 @@ void LogicSystem::SendVerifyCode(std::shared_ptr<CSession> session, const std::s
         return;
     }
 
-    filetosend->m_FileUploadStream.open(filetosend->m_FilePath);
+    filetosend->m_FileUploadStream.open(filetosend->m_FilePath, std::ios::binary);
     if (!filetosend->m_FileUploadStream.is_open()) {
         std::cerr << "SendVerifyCode cannot open the file." << std::endl;
         return;
@@ -844,7 +825,15 @@ void LogicSystem::ReceiveVerifyCode(std::shared_ptr<CSession> session, const std
     unsigned int seq = root["Sequence"].asUInt();
     std::string hashdata = root["Data"].asString();
     // 添加数据到File中
-    FileManagement::GetInstance()->findFile(session->GetUuid(), fileid)->AddHashCode(hashdata, seq);
+    auto file = FileManagement::GetInstance()->findFile(session->GetUuid(), fileid);
+    file->m_VerifyStream.open(file->m_FileSavePath,std::ios::binary);
+    if (!file->m_VerifyStream.is_open()) {
+        std::cerr << "ReceiveVerifyCode(): Cannot open file: " << file->m_FileSavePath << std::endl;
+        throw std::runtime_error("m_VerifyStream open fails!");
+        return;
+    }
+    file->m_VerifyStream.seekg(0, std::ios::beg);
+    file->AddHashCode(hashdata, seq);
 
     //所有发送接收后，会在对应的file中，发送SendDamagedBlock包
 }
@@ -871,7 +860,9 @@ void LogicSystem::SendDamagedHashBlock(std::shared_ptr<CSession> session,
 
     file->m_FileUploadStream.open(file->m_FilePath, std::ios::binary);
     if (!file->m_FileUploadStream.is_open()) {
-        file->m_FileUploadStream.open(file->m_FilePath);
+        std::cerr << "SendDamagedHashBlock cannot open the file." << std::endl;
+        return;
+        // file->m_FileUploadStream.open(file->m_FilePath,std::ios::binary);
     }
 
     auto missing_seqs = root["MissingBags"];
@@ -1049,4 +1040,10 @@ void LogicSystem::FinishUpload(std::shared_ptr<CSession> session, const std::str
 
     session->GetClientOwner()->m_NowSend--;
     session->GetClientOwner()->RemoveFile(fileid);
+}
+
+//Client、RecevServer函数   提出下载请求
+//发：FileDownRequest
+void LogicSystem::RequestDownload(std::shared_ptr<CSession> session, const std::string &msg_data) {
+
 }

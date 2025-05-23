@@ -31,10 +31,10 @@ public:
     void RequestUpload();   //网络：发出上传文件到Server的请求
     void RequestDownload(); //网络：发出从Server中下载文件的请求
 
-    void SendTestMsg();
 
 private:
     void DealSendQueue();
+    void DealDownloadQueue();
 
 
     bool m_IsInnerNet;
@@ -57,9 +57,15 @@ private:
     //if（FileId用完 && m_Bool:FileFinish）  m_CV.notify.once()
     //HandleFileUpload中把获得fileid的filepath pop出去
     std::queue<std::string> m_SendQueue;
-    std::condition_variable m_CVSendQue; //唤醒Send线程？
-    std::mutex m_Mutex;
+    std::condition_variable m_CVSendQue; //唤醒Send线程
+    std::mutex m_SendMutex;
     short m_NowSend;
+
+    //下载队列
+    std::queue<std::string> m_DownloadQueue;
+    std::condition_variable m_CVDownloadQue;
+    std::mutex m_DownloadMutex;
+    short m_NowDownload;
 
     std::string m_LogedServerName; // 被登陆的Server的账号
     int m_ClientId;                // 此Client在Server数据库中分配的Id

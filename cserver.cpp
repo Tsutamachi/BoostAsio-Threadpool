@@ -3,10 +3,11 @@
 #include "servicepool.h"
 #include <iostream>
 
-CServer::CServer(boost::asio::io_context &ioc, short port)
+CServer::CServer(boost::asio::io_context &ioc, short port, std::string name)
     : m_ioc(ioc)
     , m_port(port)
     , m_acceptor(ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port))
+    , m_ServerName(name)
 {
     std::cout << "Server start success, listen on port : " << m_port << std::endl;
     StartAccept();
@@ -39,7 +40,7 @@ void CServer::HandleAccept(std::shared_ptr<CSession> &new_session,
         return;
     }
 
-    std::cout << "Accepted connection from: "
+    std::cout << "\nAccepted connection from: "
                   << new_session->GetSocket().remote_endpoint().address().to_string()
                   << ":" << new_session->GetSocket().remote_endpoint().port() << std::endl;
 

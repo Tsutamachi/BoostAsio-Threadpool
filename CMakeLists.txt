@@ -1,7 +1,30 @@
 cmake_minimum_required(VERSION 3.27)
-
 project(MyJsonServer LANGUAGES CXX)
 
+# 查找依赖库
+find_path(MYSQL_INCLUDE_DIR mysql.h PATHS /usr/include/mysql)
+find_library(MYSQL_LIBRARY NAMES mariadb)
+find_package(Qt6 REQUIRED COMPONENTS Core Network)
+find_package(CURL REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem system thread)
+find_package(absl REQUIRED)
+find_package(Protobuf REQUIRED)
+find_library(HIREDIS_LIB hiredis)
+find_package(OpenSSL REQUIRED)
+
+# 包含目录
+include_directories(
+    ${MYSQL_INCLUDE_DIR}
+    ${Boost_INCLUDE_DIRS}
+    /usr/include
+    /usr/include/jsoncpp
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+# 自动处理Qt元对象代码
+set(CMAKE_AUTOMOC ON)
+
+# 添加可执行文件
 add_executable(
   MyJsonServer
   main.cpp
@@ -28,67 +51,55 @@ add_executable(
   client.h
   client.cpp
   base64_code.h
-  base64_code.cpp )
+  base64_code.cpp
+  message.pb.h
+  message.pb.cc
+  message.grpc.pb.h
+  message.grpc.pb.cc
+  config.ini
+  message.proto
+  ConfigMgr.h
+  ConfigMgr.cpp
+  VerifyGrpcClient.h
+  VerifyGrpcClient.cpp
+  HttpMgr.h
+  HttpMgr.cpp
+  RedisMgr.cpp
+  RedisMgr.h
+)
 
+# 编译特性
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
+set_target_properties(MyJsonServer PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
 
-target_include_directories(MyJsonServer PRIVATE /usr/include/jsoncpp)
-target_link_libraries(MyJsonServer PRIVATE /usr/lib/libjsoncpp.so)
-
-find_package(OpenSSL REQUIRED)
-target_link_libraries(MyJsonServer PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-
-# include(GNUInstallDirs) install(TARGETS MyJsonServer LIBRARY DESTINATION
-# ${CMAKE_INSTALL_LIBDIR} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} )
-
-# target_sources( MyJsonServer PRIVATE main.cpp
-#
-# PUBLIC
-#
-# )
-
-# target_compile_options( MyJsonServer PRIVATE -fmodules-ts )
-
-# target_include_directories( MyJsonServer PRIVATE /usr/include )
-
-# target_link_directories( MyJsonServer PRIVATE /usr/lib )
-
-# target_link_libraries( MyJsonServer PRIVATE m )
-
-# set_target_properties( MyJsonServer PROPERTIES CXX_STANDARD 20 CXX_EXTENSIONS
-# OFF etc.. ) 设置指定的C++编译器版本是必须的，如果不设置，或者为OFF，则指定版本不可用时，会使用上一版本。
-# set_target_properties(MyJsonServer PROPERTIES  CXX_STANDARD_REQUIRED on)
-
-# --------------------------------------------------------------------------
-# Adding build-requirements 源文件列表 target_sources( <target> PRIVATE
-# <source-file>... )
-#
-# target_precompile_headers( <target> PRIVATE <header-file>... )
-#
-# 预处理头文件搜索路径列表，等价参数：-I target_include_directories( <target> PRIVATE
-# <include-search-dir>... )
-#
-# 预编译宏 自动在指定的宏前添加，等价参数：-D target_compile_definitions( <target> PRIVATE
-# <macro-definitions>... )
-#
-# 编译选项和特性 target_compile_options( <target> PRIVATE <compiler-option>... )
-# target_compile_features( <target> PRIVATE <feature>... )
-#
-# 链接库 target_link_libraries( <target> PRIVATE <dependency>... )
-#
-# 链接选项 target_link_options( <target> PRIVATE <linker-option>... )
-#
-# 链接库搜索路径，等价参数：-L target_link_directories( <target> PRIVATE
-# <linker-search-dir>... )
-
-# execute_process(COMMAND ln -s /opt/gcc/gcm.cache  ./)
-
-# Modern Cmake建议围绕Target和Property进行项目配置，竭力避免出现下面变量variable的set定义。
-# Variable横行是典型CMake2.8时期的风格, Modern CMake则遵循了OO方法。其中，target表示待构建的对象，
-# target相关的语句用于定义来约束link、compile等相关属性的scope。 set(CMAKE_CXX_STANDARD 20)
-# set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# 完整的project命令 project( MyJsonServer LANGUAGES CXX ) DESCRIPTION "Description of
-# project" HOMEPAGE_URL "http://www.abc.com" VERSION 0.1.0 )
-# execute_process(COMMAND g++ -std=c++20 -xc++-system-header -fmodules-ts #
-# 如何要使用modules,该命令应该放在project命令之后 iostream string )
+# 链接库
+target_link_libraries(MyJsonServer PRIVATE
+    ${MYSQL_LIBRARY}
+    Qt6::Core
+    Qt6::Network
+    ${CURL_LIBRARIES}
+    ${HIREDIS_LIB}
+    Boost::filesystem
+    Boost::system
+    Boost::thread
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    absl::log_internal_check_op
+    absl::cord
+    absl::strings
+    absl::base
+    absl::synchronization
+    protobuf::libprotobuf
+    protobuf::libprotoc
+    protobuf::libprotobuf-lite
+    libgpr.so
+    libgrpc.so
+    libgrpc++.so
+    libgrpc++_reflection.so
+    libaddress_sorting.so
+    /usr/lib/libjsoncpp.so
+)

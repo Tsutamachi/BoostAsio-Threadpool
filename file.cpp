@@ -41,6 +41,7 @@ FileToReceve::FileToReceve(short fileid,
             std::cerr << "m_FileSaveStream to init file: " << ec.message() << std::endl;
             throw std::runtime_error("m_FileSaveStream init fails!");
         }
+
         // 启动 FlushToDisk 线程
         std::thread([this] { FlushToDisk(); }).detach(); //这里不能用join--why?
         // std::thread([this] { VerifyHash(); }).detach();
@@ -52,6 +53,13 @@ FileToReceve::FileToReceve(short fileid,
 
 FileToReceve::~FileToReceve()
 {
+    // {
+    //     std::lock_guard<std::mutex> lock(m_Mutex);
+    //     // m_StopFlush = true; // 新增成员变量 bool m_StopFlush = false;
+    //     m_CV.notify_all();
+    // }
+    // // 等待线程结束（若使用join）
+    // if (m_FlushThread.joinable()) m_FlushThread.join();
     // 关闭文件流
     if (m_FileSaveStream.is_open()) {
         m_FileSaveStream.close();
@@ -189,35 +197,25 @@ void FileToReceve::VerifyHash()
             std::unique_lock<std::mutex> lock(m_Mutex);
             m_CVVerify.wait(lock, [this] { return m_Verify[m_NextVerifying]; });
 
-            m_VerifyStream.open(m_FileSavePath);
-            if (!m_VerifyStream.is_open()) {
-                std::cerr << "VerifyHash(): Cannot open file: " << m_FileSavePath << std::endl;
-                throw std::runtime_error("m_FileSaveStream open fails!");
-                return;
-            }
-
             //一次检测10个包
-            while (m_VerifyStream.read(reinterpret_cast<char *>(dataBuffer.data()),
-                                       Hash_Verify_Block)) {
-                size_t bytes_read = m_VerifyStream.gcount();
-                if (bytes_read == 0)
-                    break;
-                total += bytes_read;
+            m_VerifyStream.read(reinterpret_cast<char *>(dataBuffer.data()),
+                                Hash_Verify_Block);
+            size_t bytes_read = m_VerifyStream.gcount();
+            // if (bytes_read == 0)
+            //     continue;
+            total += bytes_read;
 
-                std::string data = CalculateBlockHash(dataBuffer);
+            std::string data = CalculateBlockHash(dataBuffer);
 
-                if (m_HashCodes[m_NextVerifying] == data) {
-                    //没问题
-                    // m_HashCodes[m_NextVerifying] = "true";
-                } else {
-                    //有问题
-                    m_DamagedBlock.push_back(m_NextVerifying);
-                }
-
-                m_NextVerifying++;
-                seq++;
-                dataBuffer.clear();
+            if (m_HashCodes[m_NextVerifying] != data) {
+                //有问题
+                m_DamagedBlock.push_back(m_NextVerifying);
             }
+
+            m_NextVerifying++;
+            seq++;
+            dataBuffer.clear();
+
 
             if (m_VerifyStream.eof()) {
                 //检查剩余所有包
@@ -235,35 +233,33 @@ void FileToReceve::VerifyHash()
                     m_NextVerifying++;
                     seq++;
                     dataBuffer.clear();
-                    break;
+                    // break;
                 }
                 std::cout << "File eof!" << std::endl;
-            }
+                unsigned int bags = m_FileTotalPackets / 10;
+                if (m_FileTotalPackets % 10)
+                    bags++;
+                // 文件传输完成检测
+                if (m_NextVerifying >= bags) {
+                    m_VerifyStream.close();
+                    std::cout << "Hash Verified!" << std::endl;
 
-            unsigned int bags = m_FileTotalPackets / 10;
-            if (m_FileTotalPackets % 10)
-                bags++;
-            // 文件传输完成检测
-            if (m_NextVerifying >= bags) {
-                m_VerifyStream.close();
-                std::cout << "Hash Verified!" << std::endl;
+                    // 不检测缺包问题。就算如果有，在执行完这次Hash检测后，再来一次全文件检查
 
-                // 不检测缺包问题。就算如果有，在执行完这次Hash检测后，再来一次全文件检查
-
-                // std::unique_lock<std::mutex> lock(file->m_Mutex);
-                // file->m_VerifyFinish.wait(lock);
-                Json::Value Msg;
-                Msg["Fileid"] = m_FileId;
-                std::cout << "Missing bag sequences :" << std::endl;
-                for (auto seq : m_DamagedBlock) {
-                    std::cout << seq << "'\t";
-                    Msg["MissingBags"].append(seq); //Json数组
+                    // std::unique_lock<std::mutex> lock(file->m_Mutex);
+                    // file->m_VerifyFinish.wait(lock);
+                    Json::Value Msg;
+                    Msg["Fileid"] = m_FileId;
+                    std::cout << "Missing bag sequences :" << std::endl;
+                    for (auto seq : m_DamagedBlock) {
+                        std::cout << seq << "'\t";
+                        Msg["MissingBags"].append(seq); //Json数组
+                    }
+                    std::string target = Msg.toStyledString();
+                    m_Session->Send(target.data(), target.size(), SendDamagedBlock);
+                    break;
                 }
-                std::string target = Msg.toStyledString();
-                m_Session->Send(target.data(), target.size(), SendDamagedBlock);
-                break;
             }
-
         } catch (std::system_error &e) {
             std::cout << e.what() << std::endl;
         }
@@ -276,12 +272,12 @@ void FileToReceve::ReWriteCausedByHash()
         try {
             m_FileSaveStream.open(m_FileSavePath,
                                   std::ios::in | std::ios::out
-                                      | std::ios::binary); //同时启用读写权限，避免覆盖写时自动清空文件
+                                  | std::ios::binary); //同时启用读写权限，避免覆盖写时自动清空文件
 
             std::unique_lock<std::mutex> lock(m_Mutex);
-            m_Rewrite.wait(lock, [this] {
+            m_CVRewrite.wait(lock, [this] {
                 return (m_RewriteIndex < m_HashDatas.size())
-                       && (!m_HashDatas[m_RewriteIndex].data.empty());
+                        && (!m_HashDatas[m_RewriteIndex].data.empty());
             }); //查询有无符合要求的数据包
 
             if (!m_FileSaveStream.is_open()) {

@@ -32,7 +32,7 @@ void FileManagement::AddHashRetransmitDataPacket(const std::string &session_uuid
     auto file = findFile(session_uuid, file_id);
 
     file->m_HashDatas.emplace_back(seq, data);
-    file->m_Rewrite.notify_one();
+    file->m_CVRewrite.notify_one();
 }
 
 bool FileManagement::AddPacket(const std::string &session_uuid,
