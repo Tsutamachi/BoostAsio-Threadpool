@@ -1,9 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import com.example
+import "Controler.js" as Controler
 
 Page {
-    signal loginButClicked
      property alias loginBut: loginBut
      background: Rectangle { color: "white" }
     visible: true
@@ -11,9 +10,6 @@ Page {
     height: 700
     // color: "white"
     title: "Baidu Netdisk Login"
-    CClient{
-        id:_client
-    }
     Text {
         text: qsTr("请选择登陆端口")
         font.pixelSize: 20
@@ -142,16 +138,29 @@ Page {
                 width: 370
                 anchors.horizontalCenter: parent.horizontalCenter
                 onClicked: {
-                    loginButClicked()
-                    _client.useremail= usernameField.text
-                    _client.password=passwordField.text
-                    _client.on_get_login_clicked()
-                    // console.log("Username:", usernameField.text)
-                    // console.log("Password:", passwordField.text)
-                    // 这里可以添加登录逻辑
+                    Controler.loginRequest(usernameField.text,passwordField.text,
+                                                                 function (response) {
+                                                                     if (response.error === 0) {
+                                                                         lodermainwindows()
+                                                                     } else {
+                                                                         loginErrorText.text = "登录失败：" + (response.message || "用户名或密码错误")
+                                                                        loginErrorText.visible = true // 显示错误文本
+                                                                     }
+                                                                 })
                 }
             }
-
+            Text {
+                        id: loginErrorText
+                        text: ""
+                        color: "red"
+                        font.pointSize: 14
+                        visible: false
+                        anchors {
+                            // top: loginBut.bottom // 位于按钮下方
+                            horizontalCenter: parent.horizontalCenter // 水平居中
+                            topMargin: 10 // 间距
+                        }
+                    }
             // 添加忘记密码链接
             Text {
                 text: "<a href='#'>忘记密码？</a>"

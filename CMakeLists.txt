@@ -34,8 +34,6 @@ add_executable(
   client.cpp
   base64_code.h
   base64_code.cpp
-  cclient.cpp
-  cclient.h
   Main.qml
   Window.qml
   Firstlogin.qml

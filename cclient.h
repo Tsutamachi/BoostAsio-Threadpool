@@ -8,19 +8,19 @@
 #include <regex>
 #include <string>
 #include <QObject> // 添加 QObject 头文件
-#include <QQmlEngine>
-#include<QtQml/qqmlregistration.h>
+// #include <QQmlEngine>
+// #include<QtQml/qqmlregistration.h>
 
 using json = nlohmann::json; // 引入命名空间
 
-class CClient:public QObject
+class CClient
 {
-    Q_OBJECT
-    QML_ELEMENT
-    Q_PROPERTY(QString useremail READ useremail WRITE setUseremail NOTIFY useremailChanged FINAL)
-    Q_PROPERTY(QString password READ password WRITE setPassword NOTIFY passwordChanged FINAL)
+    // Q_OBJECT
+    // QML_ELEMENT
+    // Q_PROPERTY(QString useremail READ useremail WRITE setUseremail NOTIFY useremailChanged FINAL)
+    // Q_PROPERTY(QString password READ password WRITE setPassword NOTIFY passwordChanged FINAL)
 public:
-    CClient(QObject *parent = nullptr);
+    CClient();
     void initHttpHandlers();
     std::map<ReqId, std::function<void(const json&)>> _handlers;
     void on_get_code_clicked(const std::string& aemail);

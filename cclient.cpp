@@ -6,7 +6,7 @@
 // 为了方便使用，引入 nlohmann/json 命名空间
 using json = nlohmann::json;
 
-CClient::CClient(QObject *parent)
+CClient::CClient()
 {
     initHttpHandlers();
     // 将 Lambda 表达式作为回调函数注册到HttpMgr，用于接收请求结果，再调用slot_reg_mod_finish处理响应。s
