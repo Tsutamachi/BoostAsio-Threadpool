@@ -22,7 +22,7 @@ class CClient:public QObject
 public:
     CClient(QObject *parent = nullptr);
     void initHttpHandlers();
-    std::map<ReqId, std::function<void(const json&)>> _handlers; // 修改类型
+    std::map<ReqId, std::function<void(const json&)>> _handlers;
     void on_get_code_clicked(const std::string& aemail);
     void slot_reg_mod_finish(ReqId id, const std::string& res, ErrorCode err);
     void slot_login_mod_finish(ReqId id, const std::string& res, ErrorCode err);
