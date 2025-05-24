@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.27)
 
-project(MyJsonServer LANGUAGES CXX)
-
+project(
+  MyJsonServer
+  VERSION 0.1
+  LANGUAGES CXX)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Quick)
+find_package(CURL REQUIRED)
+qt_standard_project_setup()
 add_executable(
   MyJsonServer
   main.cpp
@@ -28,15 +33,50 @@ add_executable(
   client.h
   client.cpp
   base64_code.h
-  base64_code.cpp )
+  base64_code.cpp
+  cclient.cpp
+  cclient.h
+  Main.qml
+  Window.qml
+  Firstlogin.qml
+  Content.qml
+  Controler.js
+  HttpMgr.cpp
+  HttpMgr.h
+  singleton.h
+  global.h
+  global.cpp
+  resources.qrc
+)
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
-
+target_link_libraries(MyJsonServer PRIVATE Qt6::Widgets Qt6::Quick)
+target_link_libraries(MyJsonServer PRIVATE ${CURL_LIBRARIES})
 target_include_directories(MyJsonServer PRIVATE /usr/include/jsoncpp)
 target_link_libraries(MyJsonServer PRIVATE /usr/lib/libjsoncpp.so)
 
 find_package(OpenSSL REQUIRED)
 target_link_libraries(MyJsonServer PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+
+set_target_properties(
+  MyJsonServer
+  PROPERTIES AUTORCC TRUE
+             MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
+             MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+             MACOSX_BUNDLE_SHORT_VERSION_STRING
+             ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+             MACOSX_BUNDLE TRUE
+             WIN32_EXECUTABLE TRUE)
+
+include(GNUInstallDirs)
+install(
+  TARGETS MyJsonServer
+  BUNDLE DESTINATION .
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+qt_finalize_executable(MyJsonServer)
+
 
 # include(GNUInstallDirs) install(TARGETS MyJsonServer LIBRARY DESTINATION
 # ${CMAKE_INSTALL_LIBDIR} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} )
