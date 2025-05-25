@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import "Controler.js" as Controler
 
 Page {
+    id:loginpage
      property alias loginBut: loginBut
      background: Rectangle { color: "white" }
     visible: true
@@ -89,6 +90,12 @@ Page {
                     onActivated: function(index) {
                         var selectedText = model[index];
                         clientLoginText.text = selectedText;
+                        showRegisterAccount = (selectedText === "选项2");
+                        // 新增：自动激活Client登录状态
+                        if (selectedText === "选项2") {
+                            clientLoginRect.color = "#457ec9";
+                            serverLoginRect.color = "white";
+                        }
                     }
                 }
 
@@ -110,6 +117,11 @@ Page {
                         onClicked: {
                             serverLoginRect.color = "#457ec9";
                             clientLoginRect.color = "white";
+                            comboBox.visible = false; // 隐藏下拉框
+                            comboBox.currentIndex = -1; // 重置下拉框选择
+                            clientLoginText.text = "Client登陆"; // 重置文本
+                            showRegisterAccount = true;
+                            currentRegisterType = "server"
                         }
                     }
                 }
@@ -162,16 +174,45 @@ Page {
                         }
                     }
             // 添加忘记密码链接
-            Text {
-                text: "<a href='#'>忘记密码？</a>"
+            Row {
+                spacing: 30
                 anchors.horizontalCenter: parent.horizontalCenter
-                onLinkActivated: {
-                    console.log("Forget password clicked")
-                    // 这里可以添加链接跳转逻辑
+
+                Text {
+                    text: "<a href='#'>忘记密码？</a>"
+                    onLinkActivated: {
+                        console.log("Forget password clicked")
+                        // 这里可以添加链接跳转逻辑
+                    }
+
                 }
+
+                Button {
+                    id: registerAccountText
+                    text: "注册账号"
+                    // visible: showRegisterAccount
+
+                    onClicked: {
+                        // loginpage.closed()
+                        // loginpage.close()
+                        loderregister()
+                    }
+                    // onLinkActivated: {
+                    //     var type = ""
+                    //     if (clientLoginRect.color === "#457ec9" && comboBox.currentIndex === 1) {
+                    //         type = "client"
+                    //     } else if (serverLoginRect.color === "#457ec9") {
+                    //         type = "server"
+                    //     }
+                    //     requestRegister(type)
+                    // }
+                }
+
+
             }
         }
     }
+
     // Rectangle {
     //     id: confirmRect
     //     width: 100

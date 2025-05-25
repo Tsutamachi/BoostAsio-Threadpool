@@ -11,6 +11,16 @@ Item {
     function lodermainwindows() {
         stackView.push(Qt.resolvedUrl("Main.qml"))
     }
+    function loderregister() {
+        stackView.push(Qt.resolvedUrl("register.qml"))
+    }
+    function loderlogin() {
+        stackView.push(Qt.resolvedUrl("Firstlogin.qml"))
+    }
+    function removeregister() {
+        stackView.pop()
+        // stackView.pop()
+    }
     StackView {
         id: _stackView
         anchors.fill: parent
