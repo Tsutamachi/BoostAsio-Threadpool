@@ -9,7 +9,6 @@ ApplicationWindow {
     height: registerType === "client" ? 650 : 600  // 动态调整高度
     title: registerType === "client" ? "客户端注册" : "服务端注册"
     color: "white"
-
     // 接收注册类型参数
     property string registerType: "client"
 
@@ -56,11 +55,24 @@ ApplicationWindow {
                     text: "获取验证码"
                     Layout.preferredWidth: 100
                     onClicked: {console.log("发送验证码到:", emailField.text)
-                        Controler.varifiyRequest(emailField.text,function(res){
-                            if(res.error===0){
-                                console.log("验证码发送成功！")
-                            }
-                        })
+                        if (!emailField.text){
+                            loginErrorText.text="请输入邮箱后才能进行验证码的获取"
+                            loginErrorText.visible=true
+                        }
+                        else if(!isValidEmailFormat(emailField.text)){
+                            loginErrorText.text="邮箱格式不正确"
+                            loginErrorText.visible=true
+                        }
+                        else{
+                            loginErrorText.text=""
+                            Controler.varifiyRequest(emailField.text,function(res){
+                                if(res.error===0){
+                                    verifysend.text="验证码已经发送到邮箱请注意接收\n并在三分钟内完成注册"
+                                    verifysend.visible=true
+                                }
+                            })
+                        }
+
                     }
                 }
             }
@@ -107,12 +119,40 @@ ApplicationWindow {
                 Layout.leftMargin: 15
                 Layout.rightMargin: 15
                 onClicked: {
-                    Controler.registerRequest(emailField.text,usernameField.text,passwordField.text,
-                                              confirmPasswordField.text,serverUserField.text,codeField.text,function(res){
-                                                  if(res.error===0){
-                                                      console.log("验证码发送成功！")
-                                                  }
-                                              })
+                    if(!emailField.text){
+                        loginErrorText.text="邮箱不能为空！"
+                        loginErrorText.visible=true
+                    }
+                    else if(!codeField.text){
+                        loginErrorText.text="验证码不能为空"
+                        loginErrorText.visible=true
+                    }
+                    else if(!usernameField){
+                        loginErrorText.text="用户名不能为空！"
+                        loginErrorText.visible=true
+                    }
+                    else if(!passwordField.text){
+                        loginErrorText.text="密码不能为空"
+                        loginErrorText.visible=true
+                    }
+
+                    else if(confirmPasswordField.text!==passwordField.text){
+                        loginErrorText.text="确认密码和密码不符"
+                        loginErrorText.visible=true
+                    }
+                    else if(!serverUserField.text){
+                        loginErrorText.text="要连接的服务器名不能为空！"
+                        loginErrorText.visible=true
+                    }
+                    else{
+                        Controler.registerRequest(emailField.text,usernameField.text,passwordField.text,
+                                                  confirmPasswordField.text,serverUserField.text,codeField.text,function(res){
+                                                      if(res.error===0){
+                                                          console.log("注册成功！")
+                                                      }
+                                                  })
+                    }
+
                 }
             }
 
@@ -130,6 +170,30 @@ ApplicationWindow {
                     resgister.close()
                 }
             }
+            Text {
+                        id: loginErrorText
+                        text: ""
+                        color: "red"
+                        font.pointSize: 10
+                        visible: false
+                        anchors {
+                            // top: loginBut.bottom // 位于按钮下方
+                            horizontalCenter: parent.horizontalCenter // 水平居中
+                            topMargin: 10 // 间距
+                        }
+                    }
+            Text {
+                        id: verifysend
+                        text: ""
+                        color: "green"
+                        font.pointSize: 10
+                        visible: false
+                        anchors {
+                            // top: loginBut.bottom // 位于按钮下方
+                            horizontalCenter: parent.horizontalCenter // 水平居中
+                            topMargin: 10 // 间距
+                        }
+                    }
         }
     }
 
@@ -143,4 +207,14 @@ ApplicationWindow {
             console.log("服务器用户名:", serverUserField.text)
         }
     }
+    function isValidEmailFormat(email) {
+            // 正则表达式：验证基本的邮箱格式
+            // 允许的格式：username@domain.com
+            // 用户名部分可以包含字母、数字、点、加号、减号和下划线
+            // 域名部分可以包含多级子域名，最后一部分必须是2-6个字母
+        const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+
+            return emailRegex.test(email)
+        }
 }
+

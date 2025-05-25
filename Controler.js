@@ -28,16 +28,26 @@ function loginRequest(username, password, callback) {
 
     request.onreadystatechange = function () {
         if (request.readyState === XMLHttpRequest.DONE) {
-            let response = JSON.parse(request.responseText)
-            if (response.error === 0) {
-                console.log("成功")
-                // 这里的messagelabal指的是loginpage里面的label类型
-                // messageLabel.text = "✅ 登录成功，欢迎 " + response.role + ": " + response.user
-            } else {
-                console.log("失败")
-                // messageLabel.text = "❌ " + response.message
+            try{
+                let response = JSON.parse(request.responseText)
+                if (response.error === 0) {
+                    console.log("成功")
+                    // 这里的messagelabal指的是loginpage里面的label类型
+                    // messageLabel.text = "✅ 登录成功，欢迎 " + response.role + ": " + response.user
+                } else {
+                    console.log("失败")
+                    // messageLabel.text = "❌ " + response.message
+                }
+                callback(response)
             }
-            callback(response)
+            catch(error){
+                console.log("服务器未开启,请先开始服务器完成登陆")
+                firstlogin.loginErrorText.text="为检测到启动的服务器，请先启动服务器之后完成登陆"
+                firstlogin.loginErrorText.visible=true
+
+            }
+
+
         }
     }
 }

@@ -5,6 +5,7 @@ import "Controler.js" as Controler
 Page {
     id:loginpage
      property alias loginBut: loginBut
+     property alias loginErrorText:loginErrorText
      background: Rectangle { color: "white" }
     visible: true
     width: 1100
@@ -75,7 +76,6 @@ Page {
                         onClicked: {
                             clientLoginRect.color = "#457ec9";
                             serverLoginRect.color = "white";
-
                             comboBox.visible = true;
                         }
                     }
@@ -150,22 +150,34 @@ Page {
                 width: 370
                 anchors.horizontalCenter: parent.horizontalCenter
                 onClicked: {
-                    Controler.loginRequest(usernameField.text,passwordField.text,
-                                                                 function (response) {
-                                                                     if (response.error === 0) {
-                                                                         lodermainwindows()
-                                                                     } else {
-                                                                         loginErrorText.text = "登录失败：" + (response.message || "用户名或密码错误")
-                                                                        loginErrorText.visible = true // 显示错误文本
-                                                                     }
-                                                                 })
+                    if (!usernameField.text){
+                        loginErrorText.text="请先输入用户名"
+                        loginErrorText.visible=true
+
+                    }
+                    else if(!passwordField.text){
+                        loginErrorText.text="用户密码不可以为空！请输入密码后尝试登陆"
+                        loginErrorText.visible=true
+                    }
+                    else{
+                        Controler.loginRequest(usernameField.text,passwordField.text,
+                                                                     function (response) {
+                                                                         if (response.error === 0) {
+                                                                             lodermainwindows()
+                                                                         } else {
+                                                                             loginErrorText.text = "登录失败：" + (response.message || "用户名或密码错误")
+                                                                            loginErrorText.visible = true // 显示错误文本
+                                                                         }
+                                                                     })}
+
                 }
             }
+
             Text {
                         id: loginErrorText
                         text: ""
                         color: "red"
-                        font.pointSize: 14
+                        font.pointSize: 10
                         visible: false
                         anchors {
                             // top: loginBut.bottom // 位于按钮下方
