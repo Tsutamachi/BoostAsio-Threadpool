@@ -12,7 +12,7 @@ Item {
         stackView.push(Qt.resolvedUrl("Main.qml"))
     }
     function loderregister() {
-        stackView.push(Qt.resolvedUrl("register.qml"))
+        stackView.push(Qt.resolvedUrl("Register.qml"))
     }
     function loderlogin() {
         stackView.push(Qt.resolvedUrl("Firstlogin.qml"))

@@ -1,8 +1,10 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+// import QtQuick.Controls.Validator 2.15
 import "Controler.js" as Controler
 ApplicationWindow {
+     property alias loginErrorText: loginErrorText
     id:resgister
     visible: true
     width: 400
@@ -63,12 +65,24 @@ ApplicationWindow {
                             loginErrorText.text="邮箱格式不正确"
                             loginErrorText.visible=true
                         }
+                        else if(!serverUserField.text){
+                            loginErrorText.text="请先输入最后一栏的指定服务器进行验证码获取服务！"
+                            loginErrorText.visible=true
+                        }
                         else{
                             loginErrorText.text=""
-                            Controler.varifiyRequest(emailField.text,function(res){
+                            Controler.varifiyRequest(emailField.text,serverUserField.text,function(res){
                                 if(res.error===0){
                                     verifysend.text="验证码已经发送到邮箱请注意接收\n并在三分钟内完成注册"
                                     verifysend.visible=true
+                                }
+                                else if(res.error===1002){
+                                    loginErrorText.text="服务器端邮箱验证服务未启动，请通知服务器启动！"
+                                    loginErrorText.visible=true
+                                }
+                                else{
+                                    loginErrorText.text=""+res.error
+                                    loginErrorText.visible=true
                                 }
                             })
                         }
@@ -135,7 +149,10 @@ ApplicationWindow {
                         loginErrorText.text="密码不能为空"
                         loginErrorText.visible=true
                     }
-
+                    else if(!isValidpassword(passwordField.text)){
+                        loginErrorText.text="密码不符合规则密码长度必须大于或等于8位\n,并且必须包含数字，大小写字母"
+                        loginErrorText.visible=true
+                    }
                     else if(confirmPasswordField.text!==passwordField.text){
                         loginErrorText.text="确认密码和密码不符"
                         loginErrorText.visible=true
@@ -148,8 +165,27 @@ ApplicationWindow {
                         Controler.registerRequest(emailField.text,usernameField.text,passwordField.text,
                                                   confirmPasswordField.text,serverUserField.text,codeField.text,function(res){
                                                       if(res.error===0){
-                                                          console.log("注册成功！")
+                                                          verifysend.text="注册成功"
+                                                          lodermainwindows()
+                                                          resgister.close()
                                                       }
+                                                      else if(res.error===1003){
+                                                          loginErrorText.text="验证码已过期请重新获取"
+                                                          loginErrorText.visible=true
+                                                      }
+                                                      else if(res.error===1004){
+                                                          loginErrorText.text="验证码不匹配"
+                                                          loginErrorText.visible=true
+                                                      }
+                                                      else if (res.error===1005){
+                                                          loginErrorText.text="邮箱已经被注册或这个用户名已被占用！"
+                                                          loginErrorText.visible=true
+                                                      }
+                                                      else{
+                                                          loginErrorText.text="邮箱已经被注册或这个用户名已被占用！"
+                                                          loginErrorText.visible=true
+                                                      }
+
                                                   })
                     }
 
@@ -215,6 +251,12 @@ ApplicationWindow {
         const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 
             return emailRegex.test(email)
+        }
+    function isValidpassword(password) {
+        // 包括大小写以及字符数不少于8个
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+
+            return passwordRegex.test(password)
         }
 }
 

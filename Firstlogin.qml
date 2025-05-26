@@ -164,8 +164,15 @@ Page {
                                                                      function (response) {
                                                                          if (response.error === 0) {
                                                                              lodermainwindows()
-                                                                         } else {
-                                                                             loginErrorText.text = "登录失败：" + (response.message || "用户名或密码错误")
+                                                                         }
+                                                                         else if(response.error===1009)
+                                                                         {
+                                                                             loginErrorText.text = ("登录失败:用户名或密码错误")
+                                                                            loginErrorText.visible = true // 显示错误文本
+
+                                                                         }
+                                                                         else {
+                                                                             loginErrorText.text = ''+response.message
                                                                             loginErrorText.visible = true // 显示错误文本
                                                                          }
                                                                      })}
