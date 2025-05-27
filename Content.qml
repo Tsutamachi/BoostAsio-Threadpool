@@ -27,6 +27,9 @@ Item {
         stackView.pop()
         // stackView.pop()
     }
+    function loderserverlogin() {
+        stackView.push(Qt.resolvedUrl("ServereMain.qml"))
+    }
     StackView {
         id: _stackView
         anchors.fill: parent

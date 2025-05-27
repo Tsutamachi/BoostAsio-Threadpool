@@ -2,12 +2,16 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import "Controler.js" as Controler
+import com.example 1.0
 
 Page {
     id:loginpage
+    property var loginService: null
     property alias loginBut: loginBut
+    property alias loginErrorText: loginErrorText
     property bool showRegisterAccount: false  // 控制注册账号链接显示
     property string currentRegisterType: ""   // 记录当前注册类型
+    property string currentLoginType: ""
 
     property string currentLoginMode: ""
      background: Rectangle { color: "white" }
@@ -94,6 +98,7 @@ Page {
                     model: ["选项1", "选项2"]
 
                     onActivated: function(index) {
+                        currentLoginType="client"
                         var selectedText = model[index];
                         clientLoginText.text = selectedText;
                         showRegisterAccount = (selectedText === "选项2");
@@ -130,6 +135,7 @@ Page {
                             clientLoginText.text = "Client登陆"; // 重置文本
                             showRegisterAccount = true;
                             currentLoginMode = "server"
+                            currentLoginType="server"
                         }
                     }
                 }
@@ -158,7 +164,12 @@ Page {
                 width: 370
                 anchors.horizontalCenter: parent.horizontalCenter
                 onClicked: {
-                    if (!usernameField.text){
+                    if(currentLoginType===""){
+
+                        loginErrorText.text="请先选择登陆方式"
+                        loginErrorText.visible=true
+                    }
+                    else if (!usernameField.text){
                         loginErrorText.text="请先输入用户名"
                         loginErrorText.visible=true
 
@@ -168,22 +179,46 @@ Page {
                         loginErrorText.visible=true
                     }
                     else{
-                        Controler.loginRequest(usernameField.text,passwordField.text,
-                                                                     function (response) {
-                                                                         if (response.error === 0) {
-                                                                             lodermainwindows()
-                                                                         }
-                                                                         else if(response.error===1009)
-                                                                         {
-                                                                             loginErrorText.text = ("登录失败:用户名或密码错误")
-                                                                            loginErrorText.visible = true // 显示错误文本
+                        if(currentLoginType==="client"){
+                             console.log(currentRegisterType)
+                            Controler.loginRequest(usernameField.text,passwordField.text,
+                                                                         function (response) {
 
-                                                                         }
-                                                                         else {
-                                                                             loginErrorText.text = ''+response.message
-                                                                            loginErrorText.visible = true // 显示错误文本
-                                                                         }
-                                                                     })}
+                                                                             if (response.error === 0) {
+                                                                                 lodermainwindows()
+                                                                             }
+                                                                             else if(response.error===1009)
+                                                                             {
+                                                                                 loginErrorText.text = ("登录失败:用户名或密码错误")
+                                                                                loginErrorText.visible = true // 显示错误文本
+
+                                                                             }
+                                                                             else {
+                                                                                 loginErrorText.text = ''+response.message
+                                                                                loginErrorText.visible = true // 显示错误文本
+                                                                             }
+                                                                         })
+                        }
+                        else{
+                            const loginService = Qt.createQmlObject("import com.example 1.0; ServerLogin {}", this)
+                            let c=loginService.serverLogin(usernameField.text,passwordField.text)
+                            if (c===0){
+                                loderserverlogin()
+                            }
+                            else if(c===1){
+                                loginErrorText.text = ("登录失败:server邮箱未找到")
+                               loginErrorText.visible = true // 显示错误文本
+                            }
+                            else if(c===2){
+                                loginErrorText.text = ("登录失败:server密码与注册邮箱不匹配")
+                               loginErrorText.visible = true // 显示错误文本
+                            }
+                            else{
+                                loginErrorText.text = ("登陆服务器未知错误！")
+                               loginErrorText.visible = true // 显示错误文本
+                            }
+                        }
+                      }
 
                 }
             }

@@ -123,3 +123,6 @@ function registerRequest(email,name,passwd,confirm,server,varifycode,callback) {
     }
 }
 
+
+
+

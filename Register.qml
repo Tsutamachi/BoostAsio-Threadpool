@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import com.register 1.0
 // import QtQuick.Controls.Validator 2.15
 import "Controler.js" as Controler
 Page {
@@ -29,7 +30,7 @@ Page {
             TextField {
                 id: emailField
                 placeholderText: "邮箱"
-                visible:registerType === "client"
+                // visible:registerType === "client"
                 Layout.fillWidth: true
 
             }
@@ -191,6 +192,21 @@ Page {
                         else if(confirmPasswordField.text!==passwordField.text){
                             loginErrorText.text="确认密码和密码不符"
                             loginErrorText.visible=true
+                        }
+                        else{
+                            const registerService = Qt.createQmlObject("import com.register 1.0; ServerRegister {}", this)
+                            let c=registerService.registerServer(usernameField.text,passwordField.text,emailField.text)
+                            if(c===0){
+                                loderserverlogin()
+                            }
+                            else if(c===1){
+                                loginErrorText.text="邮箱已经被注册"
+                                loginErrorText.visible=true
+                            }
+                            else{
+                                loginErrorText.text="用户名已被使用"
+                                loginErrorText.visible=true
+                            }
                         }
 
 

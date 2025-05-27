@@ -5,6 +5,9 @@ project(
   VERSION 0.1
   LANGUAGES CXX)
 find_package(Qt6 REQUIRED COMPONENTS Widgets Quick)
+find_path(MYSQL_INCLUDE_DIR mysql.h PATHS /usr/include/mysql)
+include_directories(${MYSQL_INCLUDE_DIR})
+find_library(MYSQL_LIBRARY NAMES mariadb)
 find_package(CURL REQUIRED)
 qt_standard_project_setup()
 add_executable(
@@ -47,11 +50,15 @@ add_executable(
   resources.qrc
   Register.qml
   code.qml
+  Connectdb.h Connectdb.cpp ServerLogin.cpp ServerLogin.h ServerRegister.cpp ServerRegister.h
+  ServereMain.qml
 )
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 target_link_libraries(MyJsonServer PRIVATE Qt6::Widgets Qt6::Quick)
 target_link_libraries(MyJsonServer PRIVATE ${CURL_LIBRARIES})
+target_link_libraries(MyJsonServer PRIVATE ${MYSQL_LIBRARY})
+target_include_directories(MyJsonServer PRIVATE /usr/include)
 target_include_directories(MyJsonServer PRIVATE /usr/include/jsoncpp)
 target_link_libraries(MyJsonServer PRIVATE /usr/lib/libjsoncpp.so)
 

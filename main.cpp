@@ -177,9 +177,14 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include "cclient.h"
+#include "ServerLogin.h"
+#include "ServerRegister.h"
 int main(int argc, char *argv[])
 {
     // qmlRegisterType<CClient>("com.example", 1, 0, "CClient");
+    // 注册serverlogin并在点击按钮的时候动态加载
+    qmlRegisterType<ServerLogin>("com.example", 1, 0, "ServerLogin");
+    qmlRegisterType<ServerRegister>("com.register", 1, 0, "ServerRegister");
     QGuiApplication app(argc, argv);
 
     QQmlApplicationEngine engine;
