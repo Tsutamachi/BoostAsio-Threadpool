@@ -1,51 +1,34 @@
 #include "cserver.h"
-#include "csession.h"
-#include "servicepool.h"
+#include "HttpConnection.h"
 #include <iostream>
+#include "AsioIOServicePool.h"
+CServer::CServer(boost::asio::io_context& ioc, unsigned short port)
+    : _ioc(ioc)
+    // 上下文,端口地址接受p4夏的所有地址
+    , _acceptor(ioc, tcp::endpoint(tcp::v4(), port))
+{}
 
-CServer::CServer(boost::asio::io_context &ioc, short port)
-    : m_ioc(ioc)
-    , m_port(port)
-    , m_acceptor(ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port))
+void CServer::Start()
 {
-    std::cout << "Server start success, listen on port : " << m_port << std::endl;
-    StartAccept();
-}
-
-CServer::~CServer() {}
-void CServer::ClearSession(std::string uuid)
-{
-    m_sessions.erase(uuid);
-}
-
-void CServer::StartAccept()
-{
-    auto &iocontext = ServicePool::GetInstance().GetService();
-    boost::asio::ip::tcp::socket sock(iocontext);
-    std::shared_ptr<CSession> new_session = std::make_shared<CSession>(iocontext,
-                                                                       this,
-                                                                       CSession::Role::Server,
-                                                                       std::move(sock));
-    m_acceptor
-        .async_accept(new_session->GetSocket(),
-                      std::bind(&CServer::HandleAccept, this, new_session, std::placeholders::_1));
-}
-
-void CServer::HandleAccept(std::shared_ptr<CSession> &new_session,
-                           const boost::system::error_code &error)
-{
-    if (error) {
-        std::cout << "session accept failed, error is " << error.what() << std::endl;
-        return;
-    }
-
-    std::cout << "Accepted connection from: "
-                  << new_session->GetSocket().remote_endpoint().address().to_string()
-                  << ":" << new_session->GetSocket().remote_endpoint().port() << std::endl;
-
-    new_session->Start();
-    std::lock_guard<std::mutex> lock(m_Mutex);
-    m_sessions.insert(std::make_pair(new_session->GetUuid(), new_session));
-
-    StartAccept();
+    auto self = shared_from_this();
+    // 交给线程池来管理
+    auto& io_context = AsioIOServicePool::GetInstance()->GetIOService();
+    std::shared_ptr<HttpConnection> new_con = std::make_shared<HttpConnection>(io_context);
+    _acceptor.async_accept(new_con->GetSocket(), [self,new_con](beast::error_code ec) {
+        try {
+            // 如果出错放弃这个连接,继续监听其他连接
+            if (ec) {
+                self->Start();
+                return;
+            }
+            // 创建新连接并且创建HTTPConnection类来管理
+            new_con->Start();
+            // 继续监听
+            // std::make_shared<HttpConnection>(std::move(self->_socket))->Start();
+            self->Start();
+        } catch (std::exception& exp) {
+            std::cout << "exception is " << exp.what() << std::endl;
+            self->Start();
+        }
+    });
 }

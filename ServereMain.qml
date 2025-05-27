@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-
+import com.startserver 1.0
 Page {
     id: window
     width: 1100
@@ -9,6 +9,9 @@ Page {
     visible: true
     title: "Baidu Netdisk Clone"
     background: Rectangle { color: "#ffffff" }
+    CServerStart{
+        id:server;
+    }
     // 顶部栏
     Rectangle {
         id: topBar

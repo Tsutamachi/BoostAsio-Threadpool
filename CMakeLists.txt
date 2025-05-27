@@ -8,35 +8,45 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Quick)
 find_path(MYSQL_INCLUDE_DIR mysql.h PATHS /usr/include/mysql)
 include_directories(${MYSQL_INCLUDE_DIR})
 find_library(MYSQL_LIBRARY NAMES mariadb)
+find_package(Boost REQUIRED COMPONENTS filesystem system thread)
 find_package(CURL REQUIRED)
+find_package(absl REQUIRED)
+find_package(Protobuf REQUIRED)
+find_library(HIREDIS_LIB hiredis)
 qt_standard_project_setup()
 add_executable(
   MyJsonServer
+  AsioIOServicePool.cpp
+  AsioIOServicePool.h
+  HttpConnection.cpp
+  HttpConnection.h
+  LogicSystem.cpp
+  LogicSystem.h
   main.cpp
   cserver.h
   cserver.cpp
-  defines.h
-  csession.h
-  csession.cpp
-  msgnode.h
-  msgnode.cpp
-  Singleton.h
-  logicsystem.h
-  logicsystem.cpp
-  logicnode.h
-  logicnode.cpp
-  servicepool.h
-  servicepool.cpp
-  file.h
-  file.cpp
-  filemanagement.h
-  filemanagement.cpp
-  hashmd5.h
-  hashmd5.cpp
-  client.h
-  client.cpp
-  base64_code.h
-  base64_code.cpp
+  # defines.h
+  # csession.h
+  # csession.cpp
+  # msgnode.h
+  # msgnode.cpp
+  # Singleton.h
+  # logicsystem.h
+  # logicsystem.cpp
+  # logicnode.h
+  # logicnode.cpp
+  # servicepool.h
+  # servicepool.cpp
+  # file.h
+  # file.cpp
+  # filemanagement.h
+  # filemanagement.cpp
+  # hashmd5.h
+  # hashmd5.cpp
+  # client.h
+  # client.cpp
+  # base64_code.h
+  # base64_code.cpp
   Main.qml
   Window.qml
   Firstlogin.qml
@@ -52,18 +62,49 @@ add_executable(
   code.qml
   Connectdb.h Connectdb.cpp ServerLogin.cpp ServerLogin.h ServerRegister.cpp ServerRegister.h
   ServereMain.qml
+  message.grpc.pb.cc message.grpc.pb.h message.pb.cc message.pb.h message.proto MysqlDao.cpp MysqlDao.h MysqlMgr.cpp MysqlMgr.h RedisMgr.cpp RedisMgr.h
+  VerifyGrpcClitnt.h VerifyGrpcClitnt.cpp
+  ConfigMgr.cpp
+  ConfigMgr.h
+  CServerStart.h
+  CServerStart.cpp
 )
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 target_link_libraries(MyJsonServer PRIVATE Qt6::Widgets Qt6::Quick)
 target_link_libraries(MyJsonServer PRIVATE ${CURL_LIBRARIES})
 target_link_libraries(MyJsonServer PRIVATE ${MYSQL_LIBRARY})
+target_link_libraries(MyJsonServer PRIVATE ${HIREDIS_LIB})
+target_link_libraries(
+  MyJsonServer
+  PRIVATE
+          Boost::filesystem
+          Boost::system
+          Boost::thread
+          Boost::boost
+          # 添加Abseil库的依赖
+          absl::log_internal_check_op
+          absl::cord
+          absl::strings
+          absl::base
+          absl::synchronization
+          # 添加Protobuf库的依赖
+          protobuf::libprotobuf
+          protobuf::libprotoc
+          protobuf::libprotobuf-lite
+          # 添加grpc库的依赖
+          libgpr.so
+          libgrpc.so
+          libgrpc++.so
+          libgrpc++_reflection.so
+          libaddress_sorting.so)
 target_include_directories(MyJsonServer PRIVATE /usr/include)
 target_include_directories(MyJsonServer PRIVATE /usr/include/jsoncpp)
 target_link_libraries(MyJsonServer PRIVATE /usr/lib/libjsoncpp.so)
 
 find_package(OpenSSL REQUIRED)
 target_link_libraries(MyJsonServer PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+
 
 set_target_properties(
   MyJsonServer
@@ -74,6 +115,7 @@ set_target_properties(
              ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
              MACOSX_BUNDLE TRUE
              WIN32_EXECUTABLE TRUE)
+
 
 include(GNUInstallDirs)
 install(

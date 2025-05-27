@@ -25,12 +25,10 @@ public:
                        short fileid);                         //将TempFIle加入FilesToSend
     std::shared_ptr<FileToSend> FindFileToSend(short fileid); //通过Fileid查询File
     void RemoveFile(short fileid);
-
     void Test1();
     void EchoTest();        //网络：发送测试
     void RequestUpload();   //网络：发出上传文件到Server的请求
     void RequestDownload(); //网络：发出从Server中下载文件的请求
-
     void SendTestMsg();
 
 private:

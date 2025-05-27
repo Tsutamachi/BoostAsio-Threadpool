@@ -3,7 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import "Controler.js" as Controler
 import com.example 1.0
-
+import com.startserver 1.0
 Page {
     id:loginpage
     property var loginService: null
