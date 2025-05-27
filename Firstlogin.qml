@@ -1,11 +1,15 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 import "Controler.js" as Controler
 
 Page {
     id:loginpage
-     property alias loginBut: loginBut
-     property alias loginErrorText:loginErrorText
+    property alias loginBut: loginBut
+    property bool showRegisterAccount: false  // 控制注册账号链接显示
+    property string currentRegisterType: ""   // 记录当前注册类型
+
+    property string currentLoginMode: ""
      background: Rectangle { color: "white" }
     visible: true
     width: 1100
@@ -77,6 +81,8 @@ Page {
                             clientLoginRect.color = "#457ec9";
                             serverLoginRect.color = "white";
                             comboBox.visible = true;
+                            showRegisterAccount = (comboBox.currentIndex === 1) // 只有选项2时显示注册
+                            currentLoginMode = "client"
                         }
                     }
                 }
@@ -95,6 +101,8 @@ Page {
                         if (selectedText === "选项2") {
                             clientLoginRect.color = "#457ec9";
                             serverLoginRect.color = "white";
+                            currentRegisterType="client"
+                            console.log(currentRegisterType)
                         }
                     }
                 }
@@ -121,7 +129,7 @@ Page {
                             comboBox.currentIndex = -1; // 重置下拉框选择
                             clientLoginText.text = "Client登陆"; // 重置文本
                             showRegisterAccount = true;
-                            currentRegisterType = "server"
+                            currentLoginMode = "server"
                         }
                     }
                 }
@@ -194,28 +202,30 @@ Page {
                     }
             // 添加忘记密码链接
             Row {
-                spacing: 30
-                anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 30
+                            anchors.horizontalCenter: parent.horizontalCenter
 
-                Text {
-                    text: "<a href='#'>忘记密码？</a>"
-                    onLinkActivated: {
-                        console.log("Forget password clicked")
-                        // 这里可以添加链接跳转逻辑
-                    }
+                            Text {
+                                text: "<a href='#'>忘记密码？</a>"
+                                onLinkActivated: {
+                                    console.log("Forget password clicked")
+                                    lodercode()
+                                }
+                            }
 
-                }
+                            // loginpage.qml 中的注册链接
+                            // loginpage.qml 中的注册链接
+                            Text {
+                                id: registerAccountText
+                                text: "<a href='#'>注册账号？</a>"
+                                visible: showRegisterAccount
+                                enabled: showRegisterAccount
+                                onLinkActivated: {
+                                    root.loderregister(currentLoginMode);
 
-                Button {
-                    id: registerAccountText
-                    text: "注册账号"
-                    // visible: showRegisterAccount
+                                }
+                            }
 
-                    onClicked: {
-                        // loginpage.closed()
-                        // loginpage.close()
-                        loderregister()
-                    }
                     // onLinkActivated: {
                     //     var type = ""
                     //     if (clientLoginRect.color === "#457ec9" && comboBox.currentIndex === 1) {
@@ -225,8 +235,6 @@ Page {
                     //     }
                     //     requestRegister(type)
                     // }
-                }
-
 
             }
         }

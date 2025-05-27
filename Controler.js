@@ -20,12 +20,10 @@ function loginRequest(username, password, callback) {
         "email": username,
         "passwd": password
     }
-
     // 发送请求
     // 发送包裹
     // stringify将js对象转换为json字符串
     request.send(JSON.stringify(data))
-
     request.onreadystatechange = function () {
         if (request.readyState === XMLHttpRequest.DONE) {
             try{

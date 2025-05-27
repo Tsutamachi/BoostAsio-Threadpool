@@ -3,28 +3,21 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 // import QtQuick.Controls.Validator 2.15
 import "Controler.js" as Controler
-ApplicationWindow {
+Page {
+    id: registerPage
      property alias loginErrorText: loginErrorText
-    id:resgister
-    visible: true
-    width: 400
-    height: registerType === "client" ? 650 : 600  // 动态调整高度
+
     title: registerType === "client" ? "客户端注册" : "服务端注册"
-    color: "white"
+    background: Rectangle {
+        color: "white"
+    }
     // 接收注册类型参数
     property string registerType: "client"
-
-    ScrollView {
-        anchors.fill: parent
-        contentWidth: parent.width
-        contentHeight: columnLayout.height + 50
-
         ColumnLayout {
-            id: columnLayout
-            width: parent.width
+            id: mainLayout
+            anchors.centerIn: parent  // 整体内容居中
+            width: Math.min(parent.width * 0.8, 400)  // 最大宽度400px，自适应窗口
             spacing: 15
-            anchors.top: parent.top
-            anchors.topMargin: 30
 
             // 公共字段
             Image {
@@ -33,19 +26,17 @@ ApplicationWindow {
                 Layout.preferredHeight: 100
                 Layout.alignment: Qt.AlignHCenter
             }
-
             TextField {
                 id: emailField
                 placeholderText: "邮箱"
+                visible:registerType === "client"
                 Layout.fillWidth: true
-                Layout.leftMargin: 15
-                Layout.rightMargin: 15
+
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: 15
-                Layout.rightMargin: 15
+                visible:registerType === "client"
 
                 TextField {
                     id: codeField
@@ -95,8 +86,6 @@ ApplicationWindow {
                 id: usernameField
                 placeholderText: "用户名"
                 Layout.fillWidth: true
-                Layout.leftMargin: 15
-                Layout.rightMargin: 15
             }
 
             TextField {
@@ -104,8 +93,7 @@ ApplicationWindow {
                 placeholderText: "密码"
                 echoMode: TextInput.Password
                 Layout.fillWidth: true
-                Layout.leftMargin: 15
-                Layout.rightMargin: 15
+
             }
 
             TextField {
@@ -113,8 +101,7 @@ ApplicationWindow {
                 placeholderText: "确认密码"
                 echoMode: TextInput.Password
                 Layout.fillWidth: true
-                Layout.leftMargin: 15
-                Layout.rightMargin: 15
+
             }
 
             // 仅Client注册显示
@@ -123,71 +110,92 @@ ApplicationWindow {
                 visible: registerType === "client"
                 placeholderText: "服务器用户名"
                 Layout.fillWidth: true
-                Layout.leftMargin: 15
-                Layout.rightMargin: 15
+
             }
 
             Button {
                 text: "注册"
                 Layout.fillWidth: true
-                Layout.leftMargin: 15
-                Layout.rightMargin: 15
+
                 onClicked: {
-                    if(!emailField.text){
-                        loginErrorText.text="邮箱不能为空！"
-                        loginErrorText.visible=true
-                    }
-                    else if(!codeField.text){
-                        loginErrorText.text="验证码不能为空"
-                        loginErrorText.visible=true
-                    }
-                    else if(!usernameField){
-                        loginErrorText.text="用户名不能为空！"
-                        loginErrorText.visible=true
-                    }
-                    else if(!passwordField.text){
-                        loginErrorText.text="密码不能为空"
-                        loginErrorText.visible=true
-                    }
-                    else if(!isValidpassword(passwordField.text)){
-                        loginErrorText.text="密码不符合规则密码长度必须大于或等于8位\n,并且必须包含数字，大小写字母"
-                        loginErrorText.visible=true
-                    }
-                    else if(confirmPasswordField.text!==passwordField.text){
-                        loginErrorText.text="确认密码和密码不符"
-                        loginErrorText.visible=true
-                    }
-                    else if(!serverUserField.text){
-                        loginErrorText.text="要连接的服务器名不能为空！"
-                        loginErrorText.visible=true
+                    if (registerType === "client"){
+                        if(!emailField.text){
+                            loginErrorText.text="邮箱不能为空！"
+                            loginErrorText.visible=true
+                        }
+                        else if(!codeField.text){
+                            loginErrorText.text="验证码不能为空"
+                            loginErrorText.visible=true
+                        }
+                        else if(!usernameField.text){
+                            loginErrorText.text="用户名不能为空！"
+                            loginErrorText.visible=true
+                        }
+                        else if(!passwordField.text){
+                            loginErrorText.text="密码不能为空"
+                            loginErrorText.visible=true
+                        }
+                        else if(!isValidpassword(passwordField.text)){
+                            loginErrorText.text="密码不符合规则密码长度必须大于或等于8位\n,并且必须包含数字，大小写字母"
+                            loginErrorText.visible=true
+                        }
+                        else if(confirmPasswordField.text!==passwordField.text){
+                            loginErrorText.text="确认密码和密码不符"
+                            loginErrorText.visible=true
+                        }
+                        else if(!serverUserField.text){
+                            loginErrorText.text="要连接的服务器名不能为空！"
+                            loginErrorText.visible=true
+                        }
+                        else{
+                            Controler.registerRequest(emailField.text,usernameField.text,passwordField.text,
+                                                      confirmPasswordField.text,serverUserField.text,codeField.text,function(res){
+                                                          if(res.error===0){
+                                                              verifysend.text="注册成功"
+                                                              lodermainwindows()
+                                                              resgister.close()
+                                                          }
+                                                          else if(res.error===1003){
+                                                              loginErrorText.text="验证码已过期请重新获取"
+                                                              loginErrorText.visible=true
+                                                          }
+                                                          else if(res.error===1004){
+                                                              loginErrorText.text="验证码不匹配"
+                                                              loginErrorText.visible=true
+                                                          }
+                                                          else if (res.error===1005){
+                                                              loginErrorText.text="邮箱已经被注册或这个用户名已被占用！"
+                                                              loginErrorText.visible=true
+                                                          }
+                                                          else{
+                                                              loginErrorText.text="邮箱已经被注册或这个用户名已被占用！"
+                                                              loginErrorText.visible=true
+                                                          }
+
+                                                      })
+                        }
                     }
                     else{
-                        Controler.registerRequest(emailField.text,usernameField.text,passwordField.text,
-                                                  confirmPasswordField.text,serverUserField.text,codeField.text,function(res){
-                                                      if(res.error===0){
-                                                          verifysend.text="注册成功"
-                                                          lodermainwindows()
-                                                          resgister.close()
-                                                      }
-                                                      else if(res.error===1003){
-                                                          loginErrorText.text="验证码已过期请重新获取"
-                                                          loginErrorText.visible=true
-                                                      }
-                                                      else if(res.error===1004){
-                                                          loginErrorText.text="验证码不匹配"
-                                                          loginErrorText.visible=true
-                                                      }
-                                                      else if (res.error===1005){
-                                                          loginErrorText.text="邮箱已经被注册或这个用户名已被占用！"
-                                                          loginErrorText.visible=true
-                                                      }
-                                                      else{
-                                                          loginErrorText.text="邮箱已经被注册或这个用户名已被占用！"
-                                                          loginErrorText.visible=true
-                                                      }
+                        if(!usernameField.text){
+                                loginErrorText.text="用户名不能为空！"
+                                loginErrorText.visible=true
+                        }
+                        else if(!passwordField.text){
+                                loginErrorText.text="密码不能为空"
+                                loginErrorText.visible=true
+                        }
+                        else if(!isValidpassword(passwordField.text)){
+                                    loginErrorText.text="密码不符合规则密码长度必须大于或等于8位\n,并且必须包含数字，大小写字母"
+                                    loginErrorText.visible=true
+                        }
+                        else if(confirmPasswordField.text!==passwordField.text){
+                            loginErrorText.text="确认密码和密码不符"
+                            loginErrorText.visible=true
+                        }
 
-                                                  })
+
                     }
+
 
                 }
             }
@@ -195,15 +203,14 @@ ApplicationWindow {
             Button {
                 text: "返回登录"
                 Layout.fillWidth: true
-                Layout.leftMargin: 15
-                Layout.rightMargin: 15
+
                 onClicked: {
                     // if (typeof parent.parent.parent.backToLogin === "function") {
                     //     parent.parent.parent.backToLogin()
                     // }
-                    // loderlogin()
-                    removeregister()
-                    resgister.close()
+                    loderlogin()
+                    // removeregister()
+                    // resgister.close()
                 }
             }
             Text {
@@ -230,7 +237,6 @@ ApplicationWindow {
                             topMargin: 10 // 间距
                         }
                     }
-        }
     }
 
     function handleRegister() {

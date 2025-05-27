@@ -46,6 +46,7 @@ add_executable(
   global.cpp
   resources.qrc
   Register.qml
+  code.qml
 )
 
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
