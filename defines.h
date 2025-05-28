@@ -58,6 +58,7 @@ enum MSG_IDS {
     VerifyCode = 2015,        //Client->Server--发送的hash验证码
     SendDamagedBlock = 2016,  //Server->Client--发送有问题的hash-seq
     ReTranDamagedHash = 2017, //Client->Server--重传的数据
+    ReTransLostBagFinished = 2018,   //Client->Server--重传缺包数据完成
 
     Http_GET = 3001,
     Http_POST = 3002,

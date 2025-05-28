@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "delayedthread.h"
 
 struct HashRetransmitData
 {
@@ -52,6 +53,10 @@ public:
     void ReWriteCausedByHash();
 
 private:
+    DelayedThread m_FlushToDiskThread;
+    DelayedThread m_VerifyHashThread;
+    DelayedThread m_ReWriteCausedByHashThread;
+
     //文件信息
     std::string m_SessionUuid;       //所属Session的Uuid
     short m_FileId;                  //文件在该Session中的Id

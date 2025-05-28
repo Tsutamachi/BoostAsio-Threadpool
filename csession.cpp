@@ -164,7 +164,7 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
                                       boost::asio::buffer(m_Data, HEAD_TOTAL_LEN));
             m_http_buffer.commit(HEAD_TOTAL_LEN);
 
-            std::cout << "Detected HTTP protocol" << std::endl;
+            // std::cout << "Detected HTTP protocol" << std::endl;
 
             m_http_parser.emplace();
             m_http_parser->eager(true);
@@ -172,7 +172,7 @@ void CSession::HandleReadHead(const boost::system::error_code &error,
             StartHttpProcessing(shared_self);
 
         } else {
-            std::cout << "Detected custom protocol" << std::endl;
+            // std::cout << "Detected custom protocol" << std::endl;
             this->HandleMyProtocol(error, bytes_transferred, SharedSelf());
         }
 

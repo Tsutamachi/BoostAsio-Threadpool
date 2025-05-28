@@ -8,7 +8,7 @@ project(
 find_path(MYSQL_INCLUDE_DIR mysql.h PATHS /usr/include/mysql)
 find_library(MYSQL_LIBRARY NAMES mariadb)
 find_package(Qt6 REQUIRED COMPONENTS Core Network)
-find_package(Qt6 REQUIRED COMPONENTS Widgets Quick)
+# find_package(Qt6 REQUIRED COMPONENTS Widgets Quick)
 find_package(CURL REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem system thread)
 find_package(absl REQUIRED)
@@ -78,6 +78,8 @@ add_executable(
   Controler.js
   register.qml
   resources.qrc
+  delayedthread.h
+
 
 
 
@@ -105,8 +107,8 @@ target_link_libraries(MyJsonServer PRIVATE
     ${MYSQL_LIBRARY}
     Qt6::Core
     Qt6::Network
-    Qt6::Widgets
-    Qt6::Quick
+    # Qt6::Widgets
+    # Qt6::Quick
     ${CURL_LIBRARIES}
     ${HIREDIS_LIB}
     Boost::filesystem
@@ -130,22 +132,22 @@ target_link_libraries(MyJsonServer PRIVATE
     /usr/lib/libjsoncpp.so
 )
 
-set_target_properties(
-  MyJsonServer
-  PROPERTIES AUTORCC TRUE
-             MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
-             MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-             MACOSX_BUNDLE_SHORT_VERSION_STRING
-             ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-             MACOSX_BUNDLE TRUE
-             WIN32_EXECUTABLE TRUE)
+# set_target_properties(
+#   MyJsonServer
+#   PROPERTIES AUTORCC TRUE
+#              MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
+#              MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+#              MACOSX_BUNDLE_SHORT_VERSION_STRING
+#              ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+#              MACOSX_BUNDLE TRUE
+#              WIN32_EXECUTABLE TRUE)
 
-include(GNUInstallDirs)
-install(
-  TARGETS MyJsonServer
-  BUNDLE DESTINATION .
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+# include(GNUInstallDirs)
+# install(
+#   TARGETS MyJsonServer
+#   BUNDLE DESTINATION .
+#   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-qt_finalize_executable(MyJsonServer)
+# qt_finalize_executable(MyJsonServer)
 

@@ -43,9 +43,13 @@ FileToReceve::FileToReceve(short fileid,
         }
 
         // 启动 FlushToDisk 线程
-        std::thread([this] { FlushToDisk(); }).detach(); //这里不能用join--why?
-        // std::thread([this] { VerifyHash(); }).detach();
-        // std::thread([this] { ReWriteCausedByHash(); }).detach();
+        // std::thread([this] { FlushToDisk(); }).detach(); //这里不能用join--why?-->join会阻塞等待子线程的结束，detach不会
+        m_FlushToDiskThread.start([this]{//不捕获this,找不到FlushToDisk
+            std::cout<<"m_FlushToDiskThread start!"<<std::endl;
+            FlushToDisk(); });
+        m_FlushToDiskThread.detach();
+        // std::thread([this] { VerifyHash(); }).detach();//已经被写到LogicSystem适当的位置
+        // std::thread([this] { ReWriteCausedByHash(); }).detach();//已经被写到LogicSystem适当的位置
     } catch (std::system_error &e) {
         std::cout << e.what() << std::endl;
     }
@@ -88,6 +92,7 @@ FileToReceve::~FileToReceve()
 //与FileManagement::AddPacket搭配使用条件变量m_CV
 void FileToReceve::FlushToDisk()
 {
+    int i = 0;
     while (true) {
         try {
             std::unique_lock<std::mutex> lock(m_Mutex);
@@ -107,9 +112,17 @@ void FileToReceve::FlushToDisk()
 
             m_NextExpectedSeq++;
 
+            std::cout<<"Flushed Seq: "<<i++<<std::endl;
+
             // 文件传输完成检测
             if (m_NextExpectedSeq >= m_FileTotalPackets) {
-                m_FileSaveStream.close();
+                //这里做close的话，会与ServerHandleFinalBag中一起导致m_FileSaveStream的double free
+                //->可能是因为FlushtoDisk是一个子线程，对m_FileSaveStream访问出了问题
+
+                // if(m_FileSaveStream.is_open()){
+                    // m_FileSaveStream.close();
+                    // std::cout<<"FlushtuDisk fd close!"<<std::endl;
+                // }
                 break;
             }
         } catch (std::system_error &e) {
@@ -189,6 +202,7 @@ void FileToReceve::AddHashCode(std::string clientcode, unsigned int seq)
 
 void FileToReceve::VerifyHash()
 {
+    std::cout<<"VerifyHash Thread Start!"<<std::endl;
     std::vector<char> dataBuffer(Hash_Verify_Block);
     unsigned int seq = 0;
     unsigned int total = 0;
@@ -196,6 +210,8 @@ void FileToReceve::VerifyHash()
         try {
             std::unique_lock<std::mutex> lock(m_Mutex);
             m_CVVerify.wait(lock, [this] { return m_Verify[m_NextVerifying]; });
+
+            m_VerifyStream.seekg(m_NextVerifying * Hash_Verify_Block);
 
             //一次检测10个包
             m_VerifyStream.read(reinterpret_cast<char *>(dataBuffer.data()),
@@ -241,7 +257,9 @@ void FileToReceve::VerifyHash()
                     bags++;
                 // 文件传输完成检测
                 if (m_NextVerifying >= bags) {
-                    m_VerifyStream.close();
+                    if(m_VerifyStream.is_open())
+                        m_VerifyStream.close();
+
                     std::cout << "Hash Verified!" << std::endl;
 
                     // 不检测缺包问题。就算如果有，在执行完这次Hash检测后，再来一次全文件检查
@@ -268,8 +286,11 @@ void FileToReceve::VerifyHash()
 
 void FileToReceve::ReWriteCausedByHash()
 {
+    std::cout<<"ReWriteCausedByHash Thread Start!"<<std::endl;
     while (true) {
         try {
+            if(m_FileSaveStream.is_open())
+                m_FileSaveStream.close();
             m_FileSaveStream.open(m_FileSavePath,
                                   std::ios::in | std::ios::out
                                   | std::ios::binary); //同时启用读写权限，避免覆盖写时自动清空文件
@@ -281,8 +302,8 @@ void FileToReceve::ReWriteCausedByHash()
             }); //查询有无符合要求的数据包
 
             if (!m_FileSaveStream.is_open()) {
-                std::cout << "m_FileSaveStream open fails!" << std::endl;
-                throw std::runtime_error("m_FileSaveStream open fails!");
+                std::cout << "ReWriteCausedByHash: m_FileSaveStream open fails!" << std::endl;
+                throw std::runtime_error("ReWriteCausedByHash: m_FileSaveStream open fails!");
             }
 
             std::cout << "Received file sequence :" << m_HashDatas[m_RewriteIndex].seq << std::endl;

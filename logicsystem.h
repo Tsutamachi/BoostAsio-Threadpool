@@ -103,6 +103,9 @@ private:
     //MsgId:ReTranDamagedHash   Server接收 被重传的hash验证有问题的包 到文件（覆盖写）
     void ServerHandleDamagedHashBag(std::shared_ptr<CSession> session, const std::string &msg_data);
 
+    //MsgId:ReTransLostBagFinished Server接受缺包的重传后，再次检测
+    void ReCheckFile(std::shared_ptr<CSession> session, const std::string &msg_data);
+
 
 
     //MsgId:FileDownloadRequest 处理 下载文件的请求
