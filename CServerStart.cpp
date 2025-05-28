@@ -13,14 +13,17 @@ CServerStart::CServerStart(QObject *parent) : QObject(parent)
 
     _server = std::make_shared<CServer>(*_ioc, port);
     _server->Start();
+    std::cout << "服务器已启动，监听端口: " << port << std::endl;
 
     _workerThread = std::thread([this]() {
+        // std::cout << "工作线程启动，ID: " << std::this_thread::get_id() << std::endl;
         _ioc->run();
+        std::cout << "工作线程退出" << std::endl;
     });
 
-    // 使用 join() 而非 detach()，在析构函数中等待线程结束
-    // _workerThread.detach();
+    _workerThread.detach();  // 分离线程，让它在后台运行
 }
+
 
 
 

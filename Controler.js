@@ -91,7 +91,8 @@ function varifiyRequest(email,server, callback) {
 
 function registerRequest(email,name,passwd,confirm,server,varifycode,callback) {
     var request = new XMLHttpRequest()
-    request.open("POST", "http://localhost:8080/user_register")
+    const url = `http://${server}:8080/user_register`;
+    request.open("POST", url)
     request.setRequestHeader("Content-Type", "application/json")
     let data = {
         "email": email,

@@ -23,8 +23,8 @@ Page {
             // 公共字段
             Image {
                 source: "qrc:/icons/software.png"
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 100
+                Layout.preferredWidth: 150
+                Layout.preferredHeight: 150
                 Layout.alignment: Qt.AlignHCenter
             }
             TextField {
@@ -48,6 +48,9 @@ Page {
                 Button {
                     text: "获取验证码"
                     Layout.preferredWidth: 100
+                    background: Rectangle {
+                        color: "#457ec9"
+                    }
                     onClicked: {console.log("发送验证码到:", emailField.text)
                         if (!emailField.text){
                             loginErrorText.text="请输入邮箱后才能进行验证码的获取"
@@ -117,7 +120,9 @@ Page {
             Button {
                 text: "注册"
                 Layout.fillWidth: true
-
+                background: Rectangle {
+                    color: "#457ec9"
+                }
                 onClicked: {
                     if (registerType === "client"){
                         if(!emailField.text){
@@ -219,7 +224,9 @@ Page {
             Button {
                 text: "返回登录"
                 Layout.fillWidth: true
-
+                background: Rectangle {
+                    color: "#457ec9"
+                }
                 onClicked: {
                     // if (typeof parent.parent.parent.backToLogin === "function") {
                     //     parent.parent.parent.backToLogin()

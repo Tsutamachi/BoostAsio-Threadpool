@@ -87,6 +87,7 @@ Page {
                             comboBox.visible = true;
                             showRegisterAccount = (comboBox.currentIndex === 1) // 只有选项2时显示注册
                             currentLoginMode = "client"
+                            serverIpField.visible = true;
                         }
                     }
                 }
@@ -136,11 +137,19 @@ Page {
                             showRegisterAccount = true;
                             currentLoginMode = "server"
                             currentLoginType="server"
+                            serverIpField.visible = false;
                         }
                     }
                 }
             }
 
+            TextField {
+                id: serverIpField
+                visible: false
+                placeholderText: "服务器IP地址"
+                width: 370
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
             // 添加用户名和密码输入框
             TextField {
                 id: usernameField
@@ -163,6 +172,9 @@ Page {
                 text: "登录"
                 width: 370
                 anchors.horizontalCenter: parent.horizontalCenter
+                background: Rectangle {
+                    color: "#457ec9"
+                }
                 onClicked: {
                     if(currentLoginType===""){
 
