@@ -1,6 +1,7 @@
 #include "RedisMgr.h"
 #include "defines.h"
 #include "ConfigMgr.h"
+
 RedisMgr::RedisMgr() {
     auto& gCfgMgr = ConfigMgr::Inst();
     auto host = gCfgMgr["Redis"]["Host"];
@@ -26,7 +27,6 @@ bool RedisMgr::Get(const std::string& key, std::string& value)
          _con_pool->returnConnection(connect);
           return false;
     }
-// ???????string??
      if (reply->type != REDIS_REPLY_STRING) {
          std::cout << "[ GET  " << key << " ] failed" << std::endl;
          freeReplyObject(reply);
@@ -43,6 +43,7 @@ bool RedisMgr::Get(const std::string& key, std::string& value)
 }
 
 bool RedisMgr::Set(const std::string &key, const std::string &value){
+
 
     auto connect = _con_pool->getConnection();
     if (connect == nullptr) {
@@ -76,6 +77,7 @@ bool RedisMgr::Set(const std::string &key, const std::string &value){
 // ???????
 bool RedisMgr::LPush(const std::string &key, const std::string &value)
 {
+
     auto connect = _con_pool->getConnection();
     if (connect == nullptr) {
         return false;
@@ -184,6 +186,7 @@ bool RedisMgr::RPop(const std::string& key, std::string& value) {
 // ?????key?website???key?llfc bilibili?
 // ?????????key???key??llfc????????
 bool RedisMgr::HSet(const std::string &key, const std::string &hkey, const std::string &value) {
+
     auto connect = _con_pool->getConnection();
     if (connect == nullptr) {
         return false;
@@ -210,6 +213,7 @@ bool RedisMgr::HSet(const std::string &key, const std::string &hkey, const std::
 // ???????set????????????????
 bool RedisMgr::HSet(const char* key, const char* hkey, const char* hvalue, size_t hvaluelen)
 {
+
     auto connect = _con_pool->getConnection();
     if (connect == nullptr) {
         return false;
@@ -250,6 +254,7 @@ bool RedisMgr::HSet(const char* key, const char* hkey, const char* hvalue, size_
 
 std::string RedisMgr::HGet(const std::string &key, const std::string &hkey)
 {
+
     auto connect = _con_pool->getConnection();
     if (connect == nullptr) {
         return "";
@@ -286,6 +291,7 @@ std::string RedisMgr::HGet(const std::string &key, const std::string &hkey)
 
 bool RedisMgr::HDel(const std::string& key, const std::string& field)
 {
+
     auto connect = _con_pool->getConnection();
     if (connect == nullptr) {
         return false;
@@ -312,6 +318,7 @@ bool RedisMgr::HDel(const std::string& key, const std::string& field)
 
 bool RedisMgr::Del(const std::string &key)
 {
+
     auto connect = _con_pool->getConnection();
     if (connect == nullptr) {
         return false;
@@ -338,6 +345,7 @@ bool RedisMgr::Del(const std::string &key)
 // ??key????
 bool RedisMgr::ExistsKey(const std::string &key)
 {
+
     auto connect = _con_pool->getConnection();
     if (connect == nullptr) {
         return false;

@@ -97,13 +97,6 @@ CSession::Role CSession::GetRole() const
     return (m_Role == Role::Client) ? Role::Client : Role::Server;
 }
 
-std::string CSession::get_Http_FileName(std::string HttpBuffer)
-{
-    size_t path_start = HttpBuffer.find(" ") + 1;
-    size_t path_end = HttpBuffer.find(" ", path_start);
-    return HttpBuffer.substr(path_start, path_end - path_start);
-}
-
 void CSession::Start()
 {
     //清空缓存区
@@ -197,6 +190,7 @@ void CSession::StartHttpProcessing(std::shared_ptr<CSession> self) {
         }
         // std::cout<<"Processing has been finished. turn to HttpProtocol "<<std::endl;
         HandleHttpProtocol(ec, bytes, self);
+        CheckDeadline(self);
     }
     );
 }
@@ -637,4 +631,18 @@ void CSession::PreParseGetParam() {
             _get_params[key] = value;
         }
     }
+}
+
+void CSession::CheckDeadline(std::shared_ptr<CSession> shared_self)
+{
+    deadline_.async_wait(
+        [shared_self](boost::beast::error_code ec)
+        {
+            if (!ec)
+            {
+                // Close socket to cancel any outstanding operation.
+                // ??????
+                shared_self->m_Socket.close(ec);
+            }
+        });
 }

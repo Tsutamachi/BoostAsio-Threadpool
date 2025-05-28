@@ -41,6 +41,8 @@ private:
     void Http_Get_Test(std::shared_ptr<CSession> connection);
     void Http_Post_VerifyEmail(std::shared_ptr<CSession> connection);
     void Http_Post_VerifyCode(std::shared_ptr<CSession> connection);
+    void Http_Post_UserRegister(std::shared_ptr<CSession> connection);
+    void Http_Post_UserLogin(std::shared_ptr<CSession> connection);
 
     //发出的请求：
     //CLient->Server:上传文件，下载文件

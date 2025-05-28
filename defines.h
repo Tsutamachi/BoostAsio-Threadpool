@@ -72,17 +72,15 @@ enum MSG_IDS {
 #include <functional>
 enum ErrorCodes {
     Success = 0,
-    Error_Json = 1001,  //Json解析错误
-    RPCFailed = 1002,   //RPC请求错误
+    Error_Json = 1001,//json验证失败
+    RPCFailed = 1002,//邮箱验证启动
     VarifyExpired = 1003,//验证码过期
-    VarifyCodeErr = 1004,
-    UserExist = 1005,
-    PasswdErr = 1006,
-    EmailNotMatch = 1007,
-    PasswdUpFailed = 1008,
-    PasswdInvalid = 1009,
-    TokenInvalid = 1010,
-    UidInvalid = 1011,
+    VarifyCodeErr = 1004,//验证码不匹配
+    UserExist = 1005,//用户名已存在！
+    PasswdErr = 1006,//密码不匹配
+    // EmailNotMatch = 1007,
+    // PasswdUpFailed = 1008,
+    PasswdInvalid = 1009,//用户名不存在或密码错误
 };
 class Defer
 {
@@ -96,6 +94,8 @@ public:
 private:
     std::function<void()> func_;
 };
+#define CODEPREFIX "code_"
+
 
 //global.h
 #include <functional>

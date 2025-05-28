@@ -12,6 +12,8 @@
 #include <string>
 #include <boost/beast.hpp>
 #include "VerifyGrpcClient.h"
+#include "MysqlMgr.h"
+#include "RedisMgr.h"
 
 //这一层的数据处理，只需要考虑数据包部分，包头由MegNode进行自动封装
 LogicSystem::LogicSystem()
@@ -141,23 +143,23 @@ void LogicSystem::DealMsg()
 void LogicSystem::RegisterCallBacks()
 {
     //Client测试通信
-{
+    {
 
-    m_ClientFunCallBacks[Test] = std::bind(&LogicSystem::ClientSendTest,
-                                           this,
-                                           std::placeholders::_1,
-                                           std::placeholders::_2);
+        m_ClientFunCallBacks[Test] = std::bind(&LogicSystem::ClientSendTest,
+                                               this,
+                                               std::placeholders::_1,
+                                               std::placeholders::_2);
 
-    m_ServerFunCallBacks[Echo] = std::bind(&LogicSystem::ServerSendTest,
-                                           this,
-                                           std::placeholders::_1,
-                                           std::placeholders::_2);
+        m_ServerFunCallBacks[Echo] = std::bind(&LogicSystem::ServerSendTest,
+                                               this,
+                                               std::placeholders::_1,
+                                               std::placeholders::_2);
 
-    m_ClientFunCallBacks[Back] = std::bind(&LogicSystem::ClientReturn,
-                                           this,
-                                           std::placeholders::_1,
-                                           std::placeholders::_2);
-}
+        m_ClientFunCallBacks[Back] = std::bind(&LogicSystem::ClientReturn,
+                                               this,
+                                               std::placeholders::_1,
+                                               std::placeholders::_2);
+    }
     m_ClientFunCallBacks[FileUploadRequest] = std::bind(&LogicSystem::RequestUpload,
                                                         this,
                                                         std::placeholders::_1,
@@ -224,9 +226,9 @@ void LogicSystem::RegisterCallBacks()
                                                    std::placeholders::_2);
 
     m_ServerFunCallBacks[ReTransLostBagFinished] = std::bind(&LogicSystem::ReCheckFile,
-                                                 this,
-                                                 std::placeholders::_1,
-                                                 std::placeholders::_2);
+                                                             this,
+                                                             std::placeholders::_1,
+                                                             std::placeholders::_2);
 
 
     //双端通用函数RequestDownload需不需要单独设立一个FunCallBacks?
@@ -242,8 +244,8 @@ void LogicSystem::RegisterCallBacks()
 
 void LogicSystem::RegistGet() {
     m_GetHandlers.insert(std::make_pair("/get_login", [](std::shared_ptr<CSession> connection){
-        boost::beast::ostream(connection->m_http_response.body()) << "Server :"<<connection->GetServerOwner()->m_ServerName << std::endl;
-    }));
+                             boost::beast::ostream(connection->m_http_response.body()) << "Server :"<<connection->GetServerOwner()->m_ServerName << std::endl;
+                         }));
 
     m_GetHandlers["/get_test"] = std::bind(&LogicSystem::Http_Get_Test,
                                            this,
@@ -252,8 +254,16 @@ void LogicSystem::RegistGet() {
 
 void LogicSystem::RegistPost() {
     m_PostHandlers["/post_verifyemail"] = std::bind(&LogicSystem::Http_Post_VerifyEmail,
-          this,
-          std::placeholders::_1);
+                                                    this,
+                                                    std::placeholders::_1);
+
+    m_PostHandlers["/post_userregister"] = std::bind(&LogicSystem::Http_Post_VerifyEmail,
+                                                    this,
+                                                    std::placeholders::_1);
+
+    m_PostHandlers["/post_userlogin"] = std::bind(&LogicSystem::Http_Post_UserLogin,
+                                                    this,
+                                                    std::placeholders::_1);
 }
 
 bool LogicSystem::HandleGet(std::string path, std::shared_ptr<CSession> con) {
@@ -275,14 +285,16 @@ bool LogicSystem::HandlePost(std::string path, std::shared_ptr<CSession> con) {
 }
 
 void LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
-    boost::beast::ostream(connection->m_http_response.body()) << "receive get_test req " << std::endl;
+    boost::beast::ostream(connection->m_http_response.body()) << "Hello!\n receive get_test reqest " << std::endl;
     int i = 0;
     for (auto& elem : connection->_get_params) {
         i++;
-        boost::beast::ostream(connection->m_http_response.body()) << "Hello!\n"
-                                                                     "param" << i << " key is " << elem.first;
-        boost::beast::ostream(connection->m_http_response.body()) << ", " <<  " value is " << elem.second << std::endl;
+        boost::beast::ostream(connection->m_http_response.body())
+                << "param" << i << " key is " << elem.first;
+        boost::beast::ostream(connection->m_http_response.body())
+                << ", " <<  " value is " << elem.second << std::endl;
     }
+    connection->m_http_response.set(boost::beast::http::field::content_type, "text/plain");
 }
 
 void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
@@ -316,6 +328,119 @@ void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
     std::string jsonstr = root.toStyledString();
     boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
     // return true;
+}
+
+void LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
+{
+    auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
+    std::cout << "receive body is " << body_str << std::endl;
+    connection->m_http_response.set(boost::beast::http::field::content_type, "text/json");
+    Json::Value root;
+    Json::Reader reader;
+    Json::Value src_root;
+    bool parse_success = reader.parse(body_str, src_root);
+    if (!parse_success) {
+        std::cout << "Failed to parse JSON data!" << std::endl;
+        root["error"] = ErrorCodes::Error_Json;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }
+
+    auto email = src_root["email"].asString();
+    auto name = src_root["user"].asString();
+    auto pwd = src_root["passwd"].asString();
+    auto confirm = src_root["confirm"].asString();
+    auto server = src_root["server"].asString();
+    // auto icon = src_root["icon"].asString();
+    if (pwd != confirm) {
+        std::cout << "password err " << std::endl;
+        root["error"] = ErrorCodes::PasswdErr;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }
+    std::string  varify_code;
+    bool b_get_varify = RedisMgr::GetInstance()->Get(CODEPREFIX+src_root["email"].asString(), varify_code);
+    if (!b_get_varify) {
+        std::cout << " get varify code expired" << std::endl;
+        root["error"] = ErrorCodes::VarifyExpired;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }
+    if (varify_code != src_root["varifycode"].asString()) {
+        std::cout << " varify code error" << std::endl;
+        root["error"] = ErrorCodes::VarifyCodeErr;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }
+
+    int uid = MysqlMgr::GetInstance()->RegUser(name, email, pwd,server);
+    std::cout<<uid;
+    if (uid == 1) {
+        std::cout << " user or email exist" << std::endl;
+        root["error"] = ErrorCodes::UserExist;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }else if (uid == 0) {
+        root["error"] = 0;
+        root["email"] = email;
+        root ["user"]= name;
+        root["passwd"] = pwd;
+        root["confirm"] = confirm;
+        root["varifycode"] = src_root["varifycode"].asString();
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }else {
+        std::cout << "Unexpected return value from RegUser: " << uid << std::endl;
+        root["error"] = ErrorCodes::UserExist;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
+    }
+}
+
+void LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
+{
+        std::cout<<"------------is start login-----------";
+        auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
+        std::cout << "receive body is " << body_str << std::endl;
+        connection->m_http_response.set(boost::beast::http::field::content_type, "text/json");
+        Json::Value root;
+        Json::Reader reader;
+        Json::Value src_root;
+        bool parse_success = reader.parse(body_str, src_root);
+        if (!parse_success) {
+            std::cout << "Failed to parse JSON data!" << std::endl;
+            root["error"] = ErrorCodes::Error_Json;
+            std::string jsonstr = root.toStyledString();
+            boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+            // return true;
+        }
+        auto email = src_root["email"].asString();
+        auto pwd = src_root["passwd"].asString();
+        UserInfo userInfo;
+        std::cout<<pwd;
+        bool pwd_valid = MysqlMgr::GetInstance()->CheckPwd(email, pwd, userInfo);
+        if (!pwd_valid) {
+            std::cout << " user pwd not match" << std::endl;
+            root["error"] = ErrorCodes::PasswdInvalid;
+            std::string jsonstr = root.toStyledString();
+            boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+            // return true;
+        }
+
+        std::cout << "succeed to load userinfo uid is " << userInfo.uid << std::endl;
+        root["error"] = 0;
+        root["email"] = email;
+        root["uid"] = userInfo.uid;
+        std::string jsonstr = root.toStyledString();
+        boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
+        // return true;
 }
 
 //Server只提供下载请求（Server1->Server2），Client只提供上传请求(Client->Server)
@@ -574,10 +699,10 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
         std::cout << "Send length :" << bytes_read << std::endl;
 
         //这里主动插入一个缺包(第10个包)进行调试
-        if(seq == 9){
-            seq++;
-            dataBuffer.clear();
-        }
+        // if(seq == 9){
+        //     seq++;
+        //     dataBuffer.clear();
+        // }
         // 加入发送队列
         session->Send(target.data(), target.size(), FileDataBag);
 
@@ -616,7 +741,7 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
         filetosend->m_FileUploadStream.close();
     }
 
-        //发送完后需要再接收一个Server确认文件完整的包。在获得hash确认完整后再在Client的File队列中删除该File
+    //发送完后需要再接收一个Server确认文件完整的包。在获得hash确认完整后再在Client的File队列中删除该File
     Json::Value Finish;
     Finish["FileId"] = fileid;
     Finish["Filefinish"] = 1;

@@ -56,8 +56,6 @@ public:
     Role GetRole() const;
 
 private:
-    std::string get_Http_FileName(std::string HttpBuffer);
-
     void HandleReadHead(const boost::system::error_code& error,
                         size_t bytes_transferred,
                         std::shared_ptr<CSession> shared_self);
@@ -82,6 +80,8 @@ private:
     void HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self);
 
     void PreParseGetParam();
+    // 检测是否超时
+    void CheckDeadline(std::shared_ptr<CSession> shared_self);
 
     Role m_Role;   // 标识会话是 Server 还是 Client
     void* m_Owner; // 指向 CServer 或 Client 的指针（需类型安全转换）
