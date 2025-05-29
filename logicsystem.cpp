@@ -701,10 +701,10 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
         std::cout << "Send length :" << bytes_read << std::endl;
 
         //这里主动插入一个缺包(第10个包)进行调试
-        // if(seq == 9){
-        //     seq++;
-        //     dataBuffer.clear();
-        // }
+        if(seq == 9){
+            seq++;
+            dataBuffer.clear();
+        }
         // 加入发送队列
         session->Send(target.data(), target.size(), FileDataBag);
 
@@ -975,13 +975,18 @@ void LogicSystem::ReceiveVerifyCode(std::shared_ptr<CSession> session, const std
         throw std::runtime_error("m_VerifyStream open fails!");
         return;
     }
-    file->m_VerifyStream.seekg(0, std::ios::beg);
-    file->AddHashCode(hashdata, seq);
 
-    file->m_VerifyHashThread.start([file](){
+    file->m_VerifyHashThread.start([this,file](){
+        std::cout<<"LogicSystem::ReceiveVerifyCode: start to VerifyHash"<<std::endl;
         file->VerifyHash();
     });
     file->m_VerifyHashThread.detach();
+    sleep(1);
+
+    file->m_VerifyStream.seekg(0, std::ios::beg);
+    file->AddHashCode(hashdata, seq);
+
+
 
     //所有发送接收后，会在对应的file中，发送SendDamagedBlock包
 }

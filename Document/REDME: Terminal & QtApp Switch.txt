@@ -27,7 +27,7 @@ include_directories(
 )
 
 find_path(MYSQL_INCLUDE_DIR mysql.h PATHS /usr/include/mysql)
-# include_directories(${MYSQL_INCLUDE_DIR})
+include_directories(${MYSQL_INCLUDE_DIR})
 # find_package(Qt6 REQUIRED COMPONENTS Core Network Qml Gui)
 # find_package(Qt6 REQUIRED COMPONENTS Widgets Quick)
 find_package(CURL REQUIRED)
@@ -97,13 +97,12 @@ add_executable(
     Register.qml
     code.qml
     Connectdb.h Connectdb.cpp
-    # ServerLogin.cpp ServerLogin.h
-    # ServerRegister.cpp ServerRegister.h
     ServereMain.qml
     MysqlDao.cpp MysqlDao.h
     MysqlMgr.cpp MysqlMgr.h
-    # CServerStart.h
-    # CServerStart.cpp
+    # ServerLogin.cpp ServerLogin.h
+    # ServerRegister.cpp ServerRegister.h
+    # CServerStart.h CServerStart.cpp
 )
 
 # 编译特性
@@ -177,6 +176,8 @@ set_target_properties(MyJsonServer PROPERTIES
 #   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # qt_finalize_executable(MyJsonServer)
+
+
 
 
 }

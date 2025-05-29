@@ -1,5 +1,5 @@
-#include "CServerStart.h"
-#include <QThread>
+// #include "CServerStart.h"
+// #include <QThread>
 
 CServerStart::CServerStart(QObject *parent) : QObject(parent)
 {

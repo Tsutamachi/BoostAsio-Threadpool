@@ -184,6 +184,7 @@ void FileToReceve::SlideWindow()
 void FileToReceve::AddHashCode(std::string clientcode, unsigned int seq)
 {
     std::unique_lock<std::mutex> lock(m_Mutex);
+    std::cout<<"FileToReceve::AddHashCode start"<<std::endl;
 
     //两个容器的容量都是 m_FileTotalPackets / 10（可能+1） 且连续
     if (seq >= m_Verify.size()) {
@@ -210,7 +211,6 @@ void FileToReceve::VerifyHash()
         try {
             std::unique_lock<std::mutex> lock(m_Mutex);
             m_CVVerify.wait(lock, [this] { return m_Verify[m_NextVerifying]; });
-
             m_VerifyStream.seekg(m_NextVerifying * Hash_Verify_Block);
 
             //一次检测10个包

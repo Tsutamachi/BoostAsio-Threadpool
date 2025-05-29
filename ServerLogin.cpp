@@ -1,4 +1,4 @@
-#include "ServerLogin.h"
+// #include "ServerLogin.h"
 #include <iostream>
 using std::cout;
 ServerLogin::ServerLogin(QObject *parent)

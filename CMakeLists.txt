@@ -15,8 +15,8 @@ include_directories(
 
 find_path(MYSQL_INCLUDE_DIR mysql.h PATHS /usr/include/mysql)
 include_directories(${MYSQL_INCLUDE_DIR})
-find_package(Qt6 REQUIRED COMPONENTS Core Network Qml Gui)
-find_package(Qt6 REQUIRED COMPONENTS Widgets Quick)
+# find_package(Qt6 REQUIRED COMPONENTS Core Network Qml Gui)
+# find_package(Qt6 REQUIRED COMPONENTS Widgets Quick)
 find_package(CURL REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem system thread)
 find_package(absl REQUIRED)
@@ -24,7 +24,7 @@ find_package(Protobuf REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_library(MYSQL_LIBRARY NAMES mariadb)
 find_library(HIREDIS_LIB hiredis)
-qt_standard_project_setup()
+# qt_standard_project_setup()
 
 
 
@@ -84,13 +84,12 @@ add_executable(
     Register.qml
     code.qml
     Connectdb.h Connectdb.cpp
-    ServerLogin.cpp ServerLogin.h
-    ServerRegister.cpp ServerRegister.h
     ServereMain.qml
     MysqlDao.cpp MysqlDao.h
     MysqlMgr.cpp MysqlMgr.h
-    CServerStart.h
-    CServerStart.cpp
+    # ServerLogin.cpp ServerLogin.h
+    # ServerRegister.cpp ServerRegister.h
+    # CServerStart.h CServerStart.cpp
 )
 
 # 编译特性
@@ -106,18 +105,18 @@ target_include_directories(MyJsonServer PRIVATE
     /usr/include
     /usr/include/jsoncpp
     ${CMAKE_SOURCE_DIR}/include
-    ${Qt6Qml_DIR}/../../include/QtQml
+    # ${Qt6Qml_DIR}/../../include/QtQml
 )
 
 # 链接库
 target_link_libraries(MyJsonServer PRIVATE
     ${MYSQL_LIBRARY}
-    Qt6::Core
-    Qt6::Network
-    Qt6::Qml
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Quick
+    # Qt6::Core
+    # Qt6::Network
+    # Qt6::Qml
+    # Qt6::Gui
+    # Qt6::Widgets
+    # Qt6::Quick
     ${CURL_LIBRARIES}
     ${HIREDIS_LIB}
     Boost::filesystem
@@ -146,22 +145,22 @@ set_target_properties(MyJsonServer PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
-    AUTORCC TRUE
-    MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
-    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-    MACOSX_BUNDLE_SHORT_VERSION_STRING
-    ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-    MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
+    # AUTORCC TRUE
+    # MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
+    # MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+    # MACOSX_BUNDLE_SHORT_VERSION_STRING
+    # ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+    # MACOSX_BUNDLE TRUE
+    # WIN32_EXECUTABLE TRUE
 )
 
 
-include(GNUInstallDirs)
-install(
-  TARGETS MyJsonServer
-  BUNDLE DESTINATION .
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+# include(GNUInstallDirs)
+# install(
+#   TARGETS MyJsonServer
+#   BUNDLE DESTINATION .
+#   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-qt_finalize_executable(MyJsonServer)
+# qt_finalize_executable(MyJsonServer)
 
