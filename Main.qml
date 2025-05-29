@@ -1,7 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-
+import QtQuick.Dialogs
+import com.uploadclient 1.0
 Page {
     id: window
     width: 1100
@@ -10,7 +11,13 @@ Page {
     title: "Baidu Netdisk Clone"
     background: Rectangle { color: "#ffffff" }
     // 顶部栏
+    Uploadclient{
+        id:_clientupload
+        ip: ""
+
+    }
     Rectangle {
+
         id: topBar
         width: parent.width
         height: 40 // 可以根据需要调整高度
@@ -66,6 +73,7 @@ Page {
             }
 
     }
+
     Rectangle {
         id: sidebar
         width: 60 // 侧边栏宽度
@@ -353,6 +361,7 @@ Page {
     }
 
 
+
     // 定时器用于恢复文本颜色
     Timer {
         id: timer1
@@ -406,6 +415,36 @@ Page {
         width: parent.width - sidebar.width
         height: parent.height - topBar.height
         color: "transparent"
+        TextField {
+            id: field
+            placeholderText: "路径"
+            Layout.fillWidth: true
+            Layout.leftMargin: 15
+            Layout.rightMargin: 15
+        }
+        FileDialog{
+            id: _filedialogs
+            fileMode: FileDialog.OpenFiles
+            onAccepted: {
+                for(let path of selectedFiles){
+                    const cleanPath = String(path).replace(/^file:\/\//, '');
+                    _clientupload.startUpload(cleanPath)
+                    console.log("Clean Path:", cleanPath);
+                }
+            }
+        }
+
+        Button {
+            text: "上传"
+            Layout.preferredWidth: 100
+            background: Rectangle {
+                color: "#457ec9"
+            }
+            onClicked: {
+                _filedialogs.open()
+                // _clientupload.startUpload()
+            }
+            }
         // StackView用于页面切换
         StackView {
             id: stackView

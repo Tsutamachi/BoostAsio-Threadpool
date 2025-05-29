@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import com.startserver 1.0
+import com.cfileloderstart 1.0
 Page {
     id: window
     width: 1100
@@ -11,6 +12,9 @@ Page {
     background: Rectangle { color: "#ffffff" }
     CServerStart{
         id:server;
+    }
+    CFileloderStart{
+        id:serverfile
     }
     // 顶部栏
     Rectangle {
@@ -237,185 +241,4 @@ Page {
                     }
                 }
         }
-    // // 第二个侧边栏
-    // Rectangle {
-    //     id: sidebar2
-    //     width: 170
-    //     height: parent.height - topBar.height
-    //     x: sidebar.width
-    //     y: topBar.height
-    //     color: "#ffffff" // 第二个侧边栏背景颜色
-    //     border.color: "#cccccc" // 灰色边框分隔线
-    //     border.width: 1
-    //     property int myFilesClickCount: 0 // 计数器，跟踪“我的文件”被点击的次数
-
-    //     property bool isMyFilesExpanded: false // 状态变量，控制“我的文件”下拉框
-
-    //     Column {
-    //         spacing: 15 // 文本之间的间距
-    //         anchors.top: parent.top // 顶部对齐
-    //         anchors.horizontalCenter: parent.horizontalCenter // 水平居中
-    //         anchors.margins: 10 // 边缘间距
-
-    //         Text {
-    //             id: myFilesText
-    //             text: "我的文件"
-    //             font.family: "Arial"
-    //             font.pointSize: 14
-    //             color: "#000000"
-    //             MouseArea {
-    //                            id: myFilesMouseArea
-    //                            anchors.fill: parent
-    //                            onClicked: {
-    //                                sidebar2.myFilesClickCount++; // 增加点击次数
-    //                                if (sidebar2.myFilesClickCount === 1) {
-    //                                    myFilesText.color = "#457ec9";
-    //                                    console.log("我的文件被点击"); // 第一次点击时输出
-    //                                    timer7.start();
-    //                                } else if (sidebar2.myFilesClickCount === 2) {
-    //                                    sidebar2.isMyFilesExpanded = true; // 第二次点击时显示下拉框
-    //                                    myFilesOptions.height = 100; // 根据需要调整高度
-    //                                    myFilesOptions.visible = true;
-    //                                } else {
-    //                                    sidebar2.isMyFilesExpanded = !sidebar2.isMyFilesExpanded; // 之后点击切换下拉框显示
-    //                                    myFilesOptions.height = sidebar2.isMyFilesExpanded ? 100 : 0;
-    //                                    myFilesOptions.visible = sidebar2.isMyFilesExpanded;
-    //                                }
-    //                            }
-    //                        }
-    //                    }
-
-    //         Rectangle {
-    //             id: myFilesOptions
-    //             width: parent.width
-    //             height: 0 // 默认高度为0，点击后展开
-    //             color: "#ffffff"
-    //             visible: false
-
-    //             Column {
-    //                 spacing: 5
-    //                 anchors.fill: parent
-    //                 Text {
-    //                     text: "文件1"
-    //                     font.family: "Arial"
-    //                     font.pointSize: 12
-    //                     color: "#000000"
-    //                 }
-    //                 Text {
-    //                     text: "文件2"
-    //                     font.family: "Arial"
-    //                     font.pointSize: 12
-    //                     color: "#000000"
-    //                 }
-    //                 // ... 更多文件选项
-    //                 Text {
-    //                     text: "文件3"
-    //                     font.family: "Arial"
-    //                     font.pointSize: 12
-    //                     color: "#000000"
-    //                 }
-    //             }
-    //         }
-
-    //         Text {
-    //             id: mySharesText
-    //             text: "我的分享"
-    //             font.family: "Arial"
-    //             font.pointSize: 14
-    //             color: "#000000"
-    //             y: myFilesOptions.visible ? myFilesOptions.height : 0
-    //             MouseArea {
-    //                 anchors.fill: parent
-    //                 onClicked: {
-    //                     mySharesText.color = "#457ec9";
-    //                     // 处理“我的分享”点击事件
-    //                     console.log("我的分享被点击");
-    //                     timer5.start();
-    //                 }
-    //             }
-    //         }
-
-    //         Text {
-    //             id: recycleBinText
-    //             text: "回收站"
-    //             font.family: "Arial"
-    //             font.pointSize: 14
-    //             color: "#000000"
-    //             y: myFilesOptions.visible ? myFilesOptions.height : 0
-    //             MouseArea {
-    //                 anchors.fill: parent
-    //                 onClicked: {
-    //                     recycleBinText.color = "#457ec9";
-    //                     // 处理“回收站”点击事件
-    //                     console.log("回收站被点击");
-    //                     timer6.start();
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-
-    // // 定时器用于恢复文本颜色
-    // Timer {
-    //     id: timer1
-    //     interval: 300 // 持续时间，可以根据需要调整
-    //     onTriggered: text1.color = "#000000" // 恢复黑色
-    //     repeat: false
-    // }
-
-    // Timer {
-    //     id: timer2
-    //     interval: 300 // 持续时间，可以根据需要调整
-    //     onTriggered: text2.color = "#000000" // 恢复黑色
-    //     repeat: false
-    // }
-
-    // Timer {
-    //     id: timer3
-    //     interval: 300 // 持续时间，可以根据需要调整
-    //     onTriggered: text3.color = "#000000" // 恢复黑色
-    //     repeat: false
-    // }
-    // Timer {
-    //     id: timer4
-    //     interval: 300 // 持续时间，可以根据需要调整
-    //     onTriggered: settingsText.color = "#000000" // 恢复黑色
-    //     repeat: false
-    // }
-    // Timer {
-    //     id: timer5
-    //     interval: 300 // 持续时间，可以根据需要调整
-    //     onTriggered: mySharesText.color = "#000000" // 恢复黑色
-    //     repeat: false
-    // }
-    // Timer {
-    //     id: timer6
-    //     interval: 300 // 持续时间，可以根据需要调整
-    //     onTriggered: recycleBinText.color = "#000000" // 恢复黑色
-    //     repeat: false
-    // }
-    // Timer {
-    //     id: timer7
-    //     interval: 300 // 持续时间，可以根据需要调整
-    //     onTriggered: myFilesText.color = "#000000" // 恢复黑色
-    //     repeat: false
-    // }
-    // // 主内容区域
-    // Rectangle {
-    //     id: contentArea
-    //     x: sidebar.width
-    //     y: topBar.height
-    //     width: parent.width - sidebar.width
-    //     height: parent.height - topBar.height
-    //     color: "transparent"
-    //     // StackView用于页面切换
-    //     StackView {
-    //         id: stackView
-    //         anchors.fill: parent
-    //         initialItem: Rectangle {
-    //             color: "transparent"
-    //         }
-    //     }
-    // }
 }

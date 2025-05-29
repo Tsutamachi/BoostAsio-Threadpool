@@ -28,14 +28,13 @@ Client::Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket
     HttpMgr::GetInstance();
     std::cout << "Client start success, listen on port : " << m_port << std::endl;
     m_Session->Start();
-
     // 启动 DealSendQueue 线程
     std::thread sendThread(&Client::DealSendQueue, this);
     std::thread downloadThread(&Client::DealDownloadQueue, this);
     sendThread.detach(); // 或者使用 detach()，根据需求决定
     downloadThread.detach();
-
-    Greating();
+    // RequestUpload();
+    // Greating();
 }
 
 Client::Client(boost::asio::io_context &ioc, boost::asio::ip::tcp::socket socket, short port, bool net, std::string host)
@@ -101,7 +100,11 @@ void Client::Greating()
             break;
         }
         case 3: {
-            RequestUpload();
+            std::string filepath;
+            std::cout << "Please enter the path of file you want to upload: ";
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 清除输入缓冲区的换行符
+            std::getline(std::cin, filepath);
+            RequestUpload(filepath);
             break;
         }
         case 4: {
@@ -189,17 +192,17 @@ void Client::RemoveFile(short fileid)
         std::cerr << "RemoveFile Index out of range" << std::endl;
     }
     std::cout << "FileId :" << fileid << " Removed!" << std::endl << std::endl << std::endl;
-    Greating();
+    // Greating();
 }
 
-void Client::RequestUpload()
+void Client::RequestUpload(std::string filepath)
 {
     //指定需要上传的文件的路径（这里可以设置成一次选择多个文件（limit 5），文件路径存入缓存队列中，LogicSystem从缓存队列中取数据）
-    std::string filepath;
-    std::cout << "Please enter the path of file you want to upload: ";
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 清除输入缓冲区的换行符
-    std::getline(std::cin, filepath);
-
+    // std::string filepath;
+    // std::cout << "Please enter the path of file you want to upload: ";
+    // std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // 清除输入缓冲区的换行符
+    // std::getline(std::cin, filepath);
+    // filepath="/root/file.cpp";
     std::unique_lock<std::mutex> lock(m_SendMutex);
     m_SendQueue.push(filepath);
     if (m_SendQueue.size() == 1) {
@@ -234,6 +237,7 @@ void Client::DealSendQueue()
             m_CVSendQue.wait(unique_lk);
         }
 
+        std::cout<<"-------------start------------";
         if (m_SendQueue.front().empty()) {
             m_SendQueue.pop();
             continue;

@@ -7,6 +7,7 @@ import "Controler.js" as Controler
 Page {
     id: registerPage
      property alias loginErrorText: loginErrorText
+    property  alias ipregister: serverUserField.text
 
     title: registerType === "client" ? "客户端注册" : "服务端注册"
     background: Rectangle {

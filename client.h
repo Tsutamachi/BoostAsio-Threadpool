@@ -14,7 +14,6 @@ class Client
 {
     friend class CSession;
     friend class LogicSystem;
-
 public:
     Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, short port, bool net);
     Client(boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, short port, bool net,std::string host);
@@ -27,7 +26,7 @@ public:
     void RemoveFile(short fileid);
     void Test1();
     void EchoTest();        //网络：发送测试
-    void RequestUpload();   //网络：发出上传文件到Server的请求
+    void RequestUpload(std::string filepath);   //网络：发出上传文件到Server的请求
     void RequestDownload(); //网络：发出从Server中下载文件的请求
 
     // void SendTestMsg();

@@ -12,7 +12,7 @@ Page {
     property bool showRegisterAccount: false  // 控制注册账号链接显示
     property string currentRegisterType: ""   // 记录当前注册类型
     property string currentLoginType: ""
-
+    property alias loginip: usernameField.text
     property string currentLoginMode: ""
      background: Rectangle { color: "white" }
     visible: true

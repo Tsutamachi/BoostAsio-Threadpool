@@ -91,6 +91,8 @@ add_executable(
     MysqlMgr.cpp MysqlMgr.h
     CServerStart.h
     CServerStart.cpp
+    cfileloderstart.h cfileloderstart.cpp
+    uploadclient.h uploadclient.cpp
 )
 
 # 编译特性
