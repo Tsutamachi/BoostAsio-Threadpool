@@ -15,7 +15,7 @@
 typedef std::function<void(std::shared_ptr<CSession> session, const std::string &msg_data)>
     FunCallBack;
 
-typedef std::function<void(std::shared_ptr<CSession>)> HttpHandler;
+typedef std::function<int(std::shared_ptr<CSession>)> HttpHandler;
 
 class CSession;
 class CServer;
@@ -38,11 +38,11 @@ private:
     void RegistGet();
     void RegistPost();
 
-    void Http_Get_Test(std::shared_ptr<CSession> connection);
-    void Http_Post_VerifyEmail(std::shared_ptr<CSession> connection);
-    void Http_Post_VerifyCode(std::shared_ptr<CSession> connection);
-    void Http_Post_UserRegister(std::shared_ptr<CSession> connection);
-    void Http_Post_UserLogin(std::shared_ptr<CSession> connection);
+    int Http_Get_Test(std::shared_ptr<CSession> connection);
+    int Http_Post_VerifyEmail(std::shared_ptr<CSession> connection);
+    int Http_Post_VerifyCode(std::shared_ptr<CSession> connection);
+    int Http_Post_UserRegister(std::shared_ptr<CSession> connection);
+    int Http_Post_UserLogin(std::shared_ptr<CSession> connection);
 
     //发出的请求：
     //CLient->Server:上传文件，下载文件

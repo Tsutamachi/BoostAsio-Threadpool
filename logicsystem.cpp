@@ -243,8 +243,9 @@ void LogicSystem::RegisterCallBacks()
 }
 
 void LogicSystem::RegistGet() {
-    m_GetHandlers.insert(std::make_pair("/get_login", [](std::shared_ptr<CSession> connection){
+    m_GetHandlers.insert(std::make_pair("/get_login", [](std::shared_ptr<CSession> connection)->int{
                              boost::beast::ostream(connection->m_http_response.body()) << "Server :"<<connection->GetServerOwner()->m_ServerName << std::endl;
+                             return true;
                          }));
 
     m_GetHandlers["/get_test"] = std::bind(&LogicSystem::Http_Get_Test,
@@ -257,7 +258,7 @@ void LogicSystem::RegistPost() {
                                                     this,
                                                     std::placeholders::_1);
 
-    m_PostHandlers["/post_userregister"] = std::bind(&LogicSystem::Http_Post_VerifyEmail,
+    m_PostHandlers["/post_userregister"] = std::bind(&LogicSystem::Http_Post_UserRegister,
                                                     this,
                                                     std::placeholders::_1);
 
@@ -284,7 +285,7 @@ bool LogicSystem::HandlePost(std::string path, std::shared_ptr<CSession> con) {
     return true;
 }
 
-void LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
+int LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
     boost::beast::ostream(connection->m_http_response.body()) << "Hello!\n receive get_test reqest " << std::endl;
     int i = 0;
     for (auto& elem : connection->_get_params) {
@@ -295,9 +296,10 @@ void LogicSystem::Http_Get_Test(std::shared_ptr<CSession> connection){
                 << ", " <<  " value is " << elem.second << std::endl;
     }
     connection->m_http_response.set(boost::beast::http::field::content_type, "text/plain");
+    return true;
 }
 
-void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
+int LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
     auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
     std::cout << "receive body is :\n" << body_str << std::endl;
     connection->m_http_response.set(boost::beast::http::field::content_type, "text/json");
@@ -310,7 +312,7 @@ void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
         root["error"] = ErrorCodes::Error_Json;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }
 
     if (!src_root.isMember("email")) {
@@ -318,7 +320,7 @@ void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
         root["error"] = ErrorCodes::Error_Json;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }
     auto email = src_root["email"].asString();
     GetVarifyRsp rsp = VerifyGrpcClient::GetInstance()->GetVarifyCode(email);
@@ -327,10 +329,10 @@ void LogicSystem::Http_Post_VerifyEmail(std::shared_ptr<CSession> connection){
     root["email"] = src_root["email"];
     std::string jsonstr = root.toStyledString();
     boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-    // return true;
+    return true;
 }
 
-void LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
+int LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
 {
     auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
     std::cout << "receive body is " << body_str << std::endl;
@@ -344,7 +346,7 @@ void LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
         root["error"] = ErrorCodes::Error_Json;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }
 
     auto email = src_root["email"].asString();
@@ -358,7 +360,7 @@ void LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
         root["error"] = ErrorCodes::PasswdErr;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }
     std::string  varify_code;
     bool b_get_varify = RedisMgr::GetInstance()->Get(CODEPREFIX+src_root["email"].asString(), varify_code);
@@ -367,14 +369,14 @@ void LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
         root["error"] = ErrorCodes::VarifyExpired;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }
     if (varify_code != src_root["varifycode"].asString()) {
         std::cout << " varify code error" << std::endl;
         root["error"] = ErrorCodes::VarifyCodeErr;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }
 
     int uid = MysqlMgr::GetInstance()->RegUser(name, email, pwd,server);
@@ -384,7 +386,7 @@ void LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
         root["error"] = ErrorCodes::UserExist;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }else if (uid == 0) {
         root["error"] = 0;
         root["email"] = email;
@@ -394,17 +396,17 @@ void LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
         root["varifycode"] = src_root["varifycode"].asString();
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }else {
         std::cout << "Unexpected return value from RegUser: " << uid << std::endl;
         root["error"] = ErrorCodes::UserExist;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
     }
 }
 
-void LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
+int LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
 {
         std::cout<<"------------is start login-----------";
         auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
@@ -419,7 +421,7 @@ void LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
             root["error"] = ErrorCodes::Error_Json;
             std::string jsonstr = root.toStyledString();
             boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-            // return true;
+            return true;
         }
         auto email = src_root["email"].asString();
         auto pwd = src_root["passwd"].asString();
@@ -431,7 +433,7 @@ void LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
             root["error"] = ErrorCodes::PasswdInvalid;
             std::string jsonstr = root.toStyledString();
             boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-            // return true;
+            return true;
         }
 
         std::cout << "succeed to load userinfo uid is " << userInfo.uid << std::endl;
@@ -440,7 +442,7 @@ void LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
         root["uid"] = userInfo.uid;
         std::string jsonstr = root.toStyledString();
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
-        // return true;
+        return true;
 }
 
 //Server只提供下载请求（Server1->Server2），Client只提供上传请求(Client->Server)

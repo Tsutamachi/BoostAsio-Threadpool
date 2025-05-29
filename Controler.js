@@ -1,14 +1,25 @@
 // 该方法用于发送登录请求
-function loginRequest(username, password, callback) {
+function loginRequest(serverip,username, password, callback) {
+    // 创建“快递员”准备发送请求
+    // 初始化请求
+    // 填写"快递单"：POST方式，发送到/login地址
+    // 第一个参数：HTTP请求方法
+    // 第二个：请求的url地址
+    // 请求发送到本机的8080端口的/login路径，这里的路径由后端路由决定
     var request = new XMLHttpRequest()
-    request.open("POST", "http://localhost:8080/user_login")
-
+    const url = `http://${serverip}:8080/post_userlogin`;
+    request.open("POST", url)
+    // 设置请求头
+    // 著名”包裹类型“（JSON格式）
+    // Content-Type：表示服务器发送的数据类型
+    // application/json"：表示我们要发送的JSON格式的数据
     request.setRequestHeader("Content-Type", "application/json")
+    // 准备发送的数据
+    // 准备”包裹“内容
     let data = {
         "email": username,
         "passwd": password
     }
-
     // 发送请求
     // 发送包裹
     // stringify将js对象转换为json字符串
@@ -40,7 +51,7 @@ function varifiyRequest(email,server, callback) {
 
     try{
         var request = new XMLHttpRequest()
-        const url = `http://${server}:8080/get_varifycode`;
+        const url = `http://${server}:8080/post_verifyemail`;
         request.open("POST", url)
         request.setRequestHeader("Content-Type", "application/json")
         let data = {
@@ -78,10 +89,9 @@ function varifiyRequest(email,server, callback) {
 
 }
 
-//请求发送邮箱验证码
 function registerRequest(email,name,passwd,confirm,server,varifycode,callback) {
     var request = new XMLHttpRequest()
-    const url = `http://${server}:8080/user_register`;
+    const url = `http://${server}:8080/post_userregister`;
     request.open("POST", url)
     request.setRequestHeader("Content-Type", "application/json")
     let data = {
@@ -109,7 +119,12 @@ function registerRequest(email,name,passwd,confirm,server,varifycode,callback) {
                 console.log("失败")
                 // messageLabel.text = "❌ " + response.message
             }
+            console.log(response.error)
             callback(response)
         }
     }
 }
+
+
+
+

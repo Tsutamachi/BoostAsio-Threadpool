@@ -14,7 +14,7 @@ Page {
     property string currentLoginType: ""
 
     property string currentLoginMode: ""
-    background: Rectangle { color: "white" }
+     background: Rectangle { color: "white" }
     visible: true
     width: 1100
     height: 700
@@ -192,24 +192,24 @@ Page {
                     }
                     else{
                         if(currentLoginType==="client"){
-                            console.log(currentRegisterType)
-                            Controler.loginRequest(usernameField.text,passwordField.text,
-                                                   function (response) {
+                             console.log(currentRegisterType)
+                            Controler.loginRequest(serverIpField.text,usernameField.text,passwordField.text,
+                                                                         function (response) {
 
-                                                       if (response.error === 0) {
-                                                           lodermainwindows()
-                                                       }
-                                                       else if(response.error===1009)
-                                                       {
-                                                           loginErrorText.text = ("登录失败:用户名或密码错误")
-                                                           loginErrorText.visible = true // 显示错误文本
+                                                                             if (response.error === 0) {
+                                                                                 lodermainwindows()
+                                                                             }
+                                                                             else if(response.error===1009)
+                                                                             {
+                                                                                 loginErrorText.text = ("登录失败:用户名或密码错误")
+                                                                                loginErrorText.visible = true // 显示错误文本
 
-                                                       }
-                                                       else {
-                                                           loginErrorText.text = ''+response.message
-                                                           loginErrorText.visible = true // 显示错误文本
-                                                       }
-                                                   })
+                                                                             }
+                                                                             else {
+                                                                                 loginErrorText.text = ''+response.message
+                                                                                loginErrorText.visible = true // 显示错误文本
+                                                                             }
+                                                                         })
                         }
                         else{
                             const loginService = Qt.createQmlObject("import com.example 1.0; ServerLogin {}", this)
@@ -219,69 +219,69 @@ Page {
                             }
                             else if(c===1){
                                 loginErrorText.text = ("登录失败:server邮箱未找到")
-                                loginErrorText.visible = true // 显示错误文本
+                               loginErrorText.visible = true // 显示错误文本
                             }
                             else if(c===2){
                                 loginErrorText.text = ("登录失败:server密码与注册邮箱不匹配")
-                                loginErrorText.visible = true // 显示错误文本
+                               loginErrorText.visible = true // 显示错误文本
                             }
                             else{
                                 loginErrorText.text = ("登陆服务器未知错误！")
-                                loginErrorText.visible = true // 显示错误文本
+                               loginErrorText.visible = true // 显示错误文本
                             }
                         }
-                    }
+                      }
 
                 }
             }
 
             Text {
-                id: loginErrorText
-                text: ""
-                color: "red"
-                font.pointSize: 10
-                visible: false
-                anchors {
-                    // top: loginBut.bottom // 位于按钮下方
-                    horizontalCenter: parent.horizontalCenter // 水平居中
-                    topMargin: 10 // 间距
-                }
-            }
+                        id: loginErrorText
+                        text: ""
+                        color: "red"
+                        font.pointSize: 10
+                        visible: false
+                        anchors {
+                            // top: loginBut.bottom // 位于按钮下方
+                            horizontalCenter: parent.horizontalCenter // 水平居中
+                            topMargin: 10 // 间距
+                        }
+                    }
             // 添加忘记密码链接
             Row {
-                spacing: 30
-                anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 30
+                            anchors.horizontalCenter: parent.horizontalCenter
 
-                Text {
-                    text: "<a href='#'>忘记密码？</a>"
-                    onLinkActivated: {
-                        console.log("Forget password clicked")
-                        lodercode()
-                    }
-                }
+                            Text {
+                                text: "<a href='#'>忘记密码？</a>"
+                                onLinkActivated: {
+                                    console.log("Forget password clicked")
+                                    lodercode()
+                                }
+                            }
 
-                // loginpage.qml 中的注册链接
-                // loginpage.qml 中的注册链接
-                Text {
-                    id: registerAccountText
-                    text: "<a href='#'>注册账号？</a>"
-                    visible: showRegisterAccount
-                    enabled: showRegisterAccount
-                    onLinkActivated: {
-                        root.loderregister(currentLoginMode);
+                            // loginpage.qml 中的注册链接
+                            // loginpage.qml 中的注册链接
+                            Text {
+                                id: registerAccountText
+                                text: "<a href='#'>注册账号？</a>"
+                                visible: showRegisterAccount
+                                enabled: showRegisterAccount
+                                onLinkActivated: {
+                                    root.loderregister(currentLoginMode);
 
-                    }
-                }
+                                }
+                            }
 
-                // onLinkActivated: {
-                //     var type = ""
-                //     if (clientLoginRect.color === "#457ec9" && comboBox.currentIndex === 1) {
-                //         type = "client"
-                //     } else if (serverLoginRect.color === "#457ec9") {
-                //         type = "server"
-                //     }
-                //     requestRegister(type)
-                // }
+                    // onLinkActivated: {
+                    //     var type = ""
+                    //     if (clientLoginRect.color === "#457ec9" && comboBox.currentIndex === 1) {
+                    //         type = "client"
+                    //     } else if (serverLoginRect.color === "#457ec9") {
+                    //         type = "server"
+                    //     }
+                    //     requestRegister(type)
+                    // }
 
             }
         }

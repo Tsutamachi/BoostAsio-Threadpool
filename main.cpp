@@ -214,7 +214,6 @@
 
 
 
-
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include "ServerLogin.h"
@@ -236,7 +235,7 @@ int main(int argc, char *argv[])
     // 使用相对路径或绝对路径加载QML文件
     // 例如，如果Main.qml位于项目目录的qml子目录中，可以使用如下路径：
     // const QUrl url(QStringLiteral("/run/media/root/bccbc01c-f3f5-462e-a7ed-900e1364cf9d/01/Home_page/firstlogin.qml"));
-    const QUrl url(QStringLiteral("/root/socket/my/llfc/MyJsonServer//Window.qml"));
+    const QUrl url(QStringLiteral("/root/开源3/BoostAsio-Threadpool/Window.qml"));
     // const QUrl url(QStringLiteral("/run/media/root/bccbc01c-f3f5-462e-a7ed-900e1364cf9d/01/Home_page/Window.qml"));
     QObject::connect(
                 &engine,
