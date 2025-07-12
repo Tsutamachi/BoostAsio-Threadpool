@@ -40,6 +40,7 @@ public:
             thread_->join();
             thread_.reset();
         }
+        std::cout<<"DelayedThread Destructed!"<<std::endl;
     }
 
 private:

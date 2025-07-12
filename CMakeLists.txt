@@ -87,6 +87,7 @@ add_executable(
     ServereMain.qml
     MysqlDao.cpp MysqlDao.h
     MysqlMgr.cpp MysqlMgr.h
+    filetimer.h
     # ServerLogin.cpp ServerLogin.h
     # ServerRegister.cpp ServerRegister.h
     # CServerStart.h CServerStart.cpp
@@ -97,8 +98,8 @@ target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 
 find_package(OpenSSL REQUIRED)
 
-target_include_directories(MyJsonServer PRIVATE /usr/include)
-target_include_directories(MyJsonServer PRIVATE /usr/include/jsoncpp)
+# target_include_directories(MyJsonServer PRIVATE /usr/include)
+# target_include_directories(MyJsonServer PRIVATE /usr/include/jsoncpp)
 target_include_directories(MyJsonServer PRIVATE
     ${MYSQL_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}

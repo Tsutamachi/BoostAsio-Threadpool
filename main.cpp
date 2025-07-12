@@ -77,8 +77,8 @@ int main(int argc, char *argv[])
                 try {
                     std::string serverip;
                     std::cout << "Please enter the server ipaddress(v4) you want to link with";
-                    serverip = "127.0.0.1";
-                    // std::getline(std::cin, serverip);
+                    // serverip = "127.0.0.1";
+                    std::getline(std::cin, serverip);
 
                     // 使用正则表达式检查 IPv4 地址格式
                     std::regex ip_regex(

@@ -74,6 +74,6 @@ private:
     // 用于断电功能的状态值
     bool is_Uploading; //Client正在上传文件到Server 用于析构函数中判断状态，是否进行断点记载
     bool is_Downloading; //Client正在下载文件到Server
-    unsigned int m_CurrentSeq; //这里要记录每一个文件的最近文件号
+    uintmax_t m_CurrentSeq; //这里要记录每一个文件的最近文件号
     // 当前传输的文件路径在m_FilesToSend里找
 };

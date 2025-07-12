@@ -59,8 +59,6 @@ private:
     void ClientReturn(std::shared_ptr<CSession> session, const std::string &msg_data);
 
 
-
-
     //MsgId:FileUploadRequest   处理 上传文件的请求
     //从Client端中提取文件信息并传给Server、 创建了FileToSend的暂时对象
     void RequestUpload(std::shared_ptr<CSession> session, const std::string &msg_data);

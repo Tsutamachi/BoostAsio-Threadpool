@@ -11,6 +11,7 @@ class FileManagement : public Singleton<FileManagement>
 {
     friend class Singleton<FileManagement>;
     friend class File;
+    friend class CServer;
 
 public:
     ~FileManagement();
@@ -18,14 +19,14 @@ public:
     // 添加数据包到指定传输任务
     bool AddPacket(const std::string& session_uuid,
                    short file_id,
-                   unsigned int seq,
+                   uintmax_t seq,
                    const std::vector<char>& data);
 
     bool AddFile(const std::string& session_uuid, short file_id, std::shared_ptr<FileToReceve> file);
 
     void AddHashRetransmitDataPacket(const std::string& session_uuid,
                                      short file_id,
-                                     unsigned int seq,
+                                     uintmax_t seq,
                                      const std::vector<char>& data);
 
     std::shared_ptr<FileToReceve> findFile(const std::string& session_uuid, short file_id);

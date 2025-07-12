@@ -5,6 +5,7 @@
 #define CLIENTPORT 721
 #define LOCALHOST_PORT 80
 #define DataPlace "/root/DataPlace/"
+#define StorageHardDisk "/" //装数据所在盘
 
 //包头结构：
 // MegId-Datalen
@@ -34,7 +35,7 @@
 #define MAX_DOWNLOAD_NUM 5
 
 //Lock
-#define MAX_SENDQUE 100000 //发送队列的最大长度
+#define MAX_SENDQUE 500000 //发送队列的最大长度
 
 //MessageId     前1000一般留给系统级的消息，其余的留给业务级
 enum MSG_IDS {
