@@ -6,31 +6,30 @@ import com.example 1.0
 import com.startserver 1.0
 Page {
     id:loginpage
-    property var loginService: null
     property alias loginBut: loginBut
     property alias loginErrorText: loginErrorText
-    property bool showRegisterAccount: false  // 控制注册账号链接显示
-    property string currentRegisterType: ""   // 记录当前注册类型
-    property string currentLoginType: ""
+    property var loginService: null //用于使用ServerLogin.h中注册的功能函数 的一个对象
+    property bool showRegisterAccount: true  // 根据当前角色以及登陆网络来控制这一变量。它用于控制“注册账号”功能的可见
+    property string currentLoginType: "client"
     property alias loginip: usernameField.text
-    property string currentLoginMode: ""
+    property string clientSelectedOption: "内网登陆" //默认页面为内网登陆
      background: Rectangle { color: "white" }
+
     visible: true
-    width: 1100
-    height: 700
-    // color: "white"
-    title: "Baidu Netdisk Login"
-    Text {
-        text: qsTr("请选择登陆端口")
-        font.pixelSize: 20
-        color: "black"
-        font.bold: true
-        anchors {
-            left: parent.left
-            top: parent.top
-            margins: 10
-        }
-    }
+    width: windows.width //1100
+    height: windows.height //700
+    title: "LeYan Netdisk Login"
+    // Text { //定位有点问题，看需不需要这一个文本提示
+    //     text: qsTr("请选择登陆端口")
+    //     font.pixelSize: 20
+    //     color: "black"
+    //     font.bold: true
+    //     anchors {
+    //         left: parent.left
+    //         top: parent.top
+    //         margins: 10
+    //     }
+    // }
     Rectangle {
         width: parent.width * 0.8
         height: parent.height * 0.8
@@ -42,6 +41,7 @@ Page {
             spacing: 5
 
             Image {
+                id:_logo_picture
                 width: 250
                 height: 250
                 source: "qrc:/icons/software.png"
@@ -50,7 +50,8 @@ Page {
             }
 
             Text {
-                text: "乐享网盘"
+                id:_logo_name
+                text: "乐研网盘"
                 font.pointSize: 30
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
@@ -64,58 +65,69 @@ Page {
 
                 Rectangle {
                     id: clientLoginRect
-                    width: 200
+                    width: 250
                     height: 30
-                    color: "white"
+                    // color: "white"
+                    color : "deepskyblue";//点击之后变成蓝色
                     radius: 10
                     border.color: "black"
                     border.width: 1
 
                     Text {
                         id: clientLoginText
-                        text: "Client登陆"
+                        text: "Client:内网登陆"
                         anchors.centerIn: parent
                         color: "black"
                         font.pointSize: 20
                     }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            clientLoginRect.color = "#457ec9";
+                    // MouseArea {
+                    //     anchors.fill: parent
+                    //     onClicked: {
+                    //     }
+                    // }
+                    TapHandler{
+                        onTapped: {
+                            clientLoginRect.color = "deepskyblue";//点击之后变成蓝色
                             serverLoginRect.color = "white";
+                            clientLoginText.text = "Client: 外网登陆"
+
                             comboBox.visible = true;
-                            showRegisterAccount = (comboBox.currentIndex === 1) // 只有选项2时显示注册
-                            currentLoginMode = "client"
                             serverIpField.visible = true;
+                            registerAccountText.visible = true;
+                            loginBut.visible = true;
+                            passwordField.visible = true;
+                            usernameField.visible = true;
+
+                            // 只有为client内网登陆时显示注册功能
+                            showRegisterAccount = (comboBox.currentIndex === 1)
+                            console.log("showRegisterAccount = "+showRegisterAccount+" (false-外网；true-内网)")
                         }
                     }
                 }
 
                 ComboBox {
                     id: comboBox
-                    visible: false
+                    visible: true
                     width: clientLoginRect.width
-                    model: ["选项1", "选项2"]
+                    model: ["外网登陆", "内网登陆"]//从0开始
+                    currentIndex: 1
 
-                    onActivated: function(index) {
+                    onActivated: function(index) {//选择后会执行
                         currentLoginType="client"
-                        var selectedText = model[index];
-                        clientLoginText.text = selectedText;
-                        showRegisterAccount = (selectedText === "选项2");
-                        // 新增：自动激活Client登录状态
-                        if (selectedText === "选项2") {
-                            clientLoginRect.color = "#457ec9";
+                        clientSelectedOption = model[index];
+                        clientLoginText.text = "Client: "+clientSelectedOption;
+                        showRegisterAccount = (clientSelectedOption === "内网登陆");
+                        // 自动激活Client登录状态
+                        if (clientSelectedOption === "内网登陆") {
+                            clientLoginRect.color = "deepskyblue";
                             serverLoginRect.color = "white";
-                            currentRegisterType="client"
-                            console.log(currentRegisterType)
                         }
                     }
                 }
 
                 Rectangle {
                     id: serverLoginRect
-                    width: 200
+                    width: 250
                     height: 30
                     color: "white"
                     radius: 10
@@ -126,17 +138,22 @@ Page {
                         font.pointSize: 20
                         anchors.centerIn: parent
                     }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            serverLoginRect.color = "#457ec9";
+                    TapHandler{
+                        onTapped: {
+                            serverLoginRect.color = "deepskyblue";
                             clientLoginRect.color = "white";
+
                             comboBox.visible = false; // 隐藏下拉框
                             comboBox.currentIndex = -1; // 重置下拉框选择
                             clientLoginText.text = "Client登陆"; // 重置文本
-                            showRegisterAccount = true;
-                            currentLoginMode = "server"
+                            registerAccountText.visible = true;
+                            forgetPassWord.visible = true;
+                            loginBut.visible = true;
+                            passwordField.visible = true;
+                            usernameField.visible = true;
+
                             currentLoginType="server"
+                            showRegisterAccount = true;
                             serverIpField.visible = false;
                         }
                     }
@@ -145,7 +162,7 @@ Page {
 
             TextField {
                 id: serverIpField
-                visible: false
+                visible: true
                 placeholderText: "服务器IP地址"
                 width: 370
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -153,6 +170,7 @@ Page {
             // 添加用户名和密码输入框
             TextField {
                 id: usernameField
+                // visible: false
                 placeholderText: "用户账号"
                 width: 370
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -161,6 +179,7 @@ Page {
             TextField {
                 id: passwordField
                 placeholderText: "密码"
+                // visible: false
                 echoMode: TextInput.Password
                 width: 370
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -170,21 +189,25 @@ Page {
             Button {
                 id:loginBut
                 text: "登录"
+                // visible: false
                 width: 370
                 anchors.horizontalCenter: parent.horizontalCenter
                 background: Rectangle {
-                    color: "#457ec9"
+                    color: "deepskyblue"
                 }
                 onClicked: {
                     if(currentLoginType===""){
-
                         loginErrorText.text="请先选择登陆方式"
+                        loginErrorText.visible=true
+                    }
+
+                    else if(currentLoginType==="client" && !serverIpField.text){
+                        loginErrorText.text="请输入所要登陆Server的Ip"
                         loginErrorText.visible=true
                     }
                     else if (!usernameField.text){
                         loginErrorText.text="请先输入用户名"
                         loginErrorText.visible=true
-
                     }
                     else if(!passwordField.text){
                         loginErrorText.text="用户密码不可以为空！请输入密码后尝试登陆"
@@ -192,18 +215,15 @@ Page {
                     }
                     else{
                         if(currentLoginType==="client"){
-                             console.log(currentRegisterType)
                             Controler.loginRequest(serverIpField.text,usernameField.text,passwordField.text,
                                                                          function (response) {
-
                                                                              if (response.error === 0) {
                                                                                  lodermainwindows()
                                                                              }
                                                                              else if(response.error===1009)
                                                                              {
-                                                                                 loginErrorText.text = ("登录失败:用户名或密码错误")
+                                                                                loginErrorText.text = ("登录失败:用户名或密码错误")
                                                                                 loginErrorText.visible = true // 显示错误文本
-
                                                                              }
                                                                              else {
                                                                                  loginErrorText.text = ''+response.message
@@ -211,7 +231,7 @@ Page {
                                                                              }
                                                                          })
                         }
-                        else{
+                        else{//server登陆
                             const loginService = Qt.createQmlObject("import com.example 1.0; ServerLogin {}", this)
                             let c=loginService.serverLogin(usernameField.text,passwordField.text)
                             if (c===0){
@@ -228,6 +248,7 @@ Page {
                             else{
                                 loginErrorText.text = ("登陆服务器未知错误！")
                                loginErrorText.visible = true // 显示错误文本
+
                             }
                         }
                       }
@@ -252,67 +273,40 @@ Page {
                             spacing: 30
                             anchors.horizontalCenter: parent.horizontalCenter
 
-                            Text {
-                                text: "<a href='#'>忘记密码？</a>"
-                                onLinkActivated: {
-                                    console.log("Forget password clicked")
-                                    lodercode()
-                                }
-                            }
 
-                            // loginpage.qml 中的注册链接
-                            // loginpage.qml 中的注册链接
-                            Text {
-                                id: registerAccountText
-                                text: "<a href='#'>注册账号？</a>"
-                                visible: showRegisterAccount
-                                enabled: showRegisterAccount
-                                onLinkActivated: {
-                                    root.loderregister(currentLoginMode);
+                Text {
+                    id: forgetPassWord
+                    text: "<a href='#'>忘记密码</a>"
+                    // visible: false
+                    onLinkActivated: {
+                        console.log("Forget password clicked")
+                        lodercode()
+                    }
+                }
 
-                                }
-                            }
+                // loginpage_.qml 中的注册链接
+                Text {
+                    id: registerAccountText
+                    text: "<a href='#'>注册账号</a>"
+                    visible: showRegisterAccount
+                    enabled: showRegisterAccount
+                    onLinkActivated: {
+                        root.loderregister(currentLoginType);
+                    }
+                }
 
-                    // onLinkActivated: {
-                    //     var type = ""
-                    //     if (clientLoginRect.color === "#457ec9" && comboBox.currentIndex === 1) {
-                    //         type = "client"
-                    //     } else if (serverLoginRect.color === "#457ec9") {
-                    //         type = "server"
-                    //     }
-                    //     requestRegister(type)
-                    // }
+                // onLinkActivated: {
+                //     var type = ""
+                //     if (clientLoginRect.color === "deepskyblue" && comboBox.currentIndex === 1) {
+                //         type = "client"
+                //     } else if (serverLoginRect.color === "deepskyblue") {
+                //         type = "server"
+                //     }
+                //     requestRegister(type)
+                // }
 
             }
         }
     }
-
-    // Rectangle {
-    //     id: confirmRect
-    //     width: 100
-    //     height: 40
-    //     color: "#457ec9"
-    //     radius: 10
-
-    //     anchors {
-    //         bottom: parent.bottom
-    //         right: parent.right
-    //         margins: 20
-    //     }
-
-    //     Text {
-    //         text: "确定"
-    //         anchors.centerIn: parent
-    //         color: "white"
-    //         font.bold: true
-    //     }
-
-    //     MouseArea {
-    //         anchors.fill: parent
-    //         onClicked: {
-    //             // 这里可以添加确定按钮的点击事件处理逻辑
-    //             console.log("确定按钮被点击");
-    //         }
-    //     }
-    // }
 }
+

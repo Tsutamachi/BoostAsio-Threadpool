@@ -68,9 +68,7 @@ Page {
                     text: "获取验证码"
                     Layout.preferredWidth: parent.width * 0.3  // 占30%宽度
                     enabled: true
-                    background: Rectangle {
-                        color: "#457ec9"
-                    }
+                    background: Rectangle {color: getCodeButton.enabled?"#457ec9":"gray"}
                     contentItem: Text {
                         text: parent.text
                         color: "white"
@@ -80,20 +78,11 @@ Page {
                     onPressed: {
                         console.log("发送验证码请求")
                         getCodeButton.enabled = false
+                        countdownTimer.remainingSeconds = 60
                         countdownTimer.start()
                     }
                 }
             }
-
-            // 倒计时文本
-            Text {
-                id: countdownText
-                text: ""
-                color: "#457ec9"
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignHCenter  // 文本居中
-            }
-        }
 
         // 按钮区域
         Button {
@@ -120,31 +109,31 @@ Page {
             color: "#457ec9"
             horizontalAlignment: Text.AlignHCenter  // 文本居中
             Layout.alignment: Qt.AlignBottom | Qt.AlignHCenter  // 底部居中
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
+            TapHandler{
+                onTapped:{
                     root.removeregister()  // 返回上一页
                 }
             }
         }
     }
+    }
 
     // 倒计时计时器
     Timer {
         id: countdownTimer
-        interval: 1000
+        interval: 1000//1s间隔
         repeat: true
-        running: false
+        running: false//只定义，还没开始倒计时
         property int remainingSeconds: 60
         onTriggered: {
             remainingSeconds--
             if (remainingSeconds <= 0) {
                 countdownTimer.stop()
                 getCodeButton.enabled = true
-                countdownText.text = ""
+                getCodeButton.text = "获取验证码"
+                remainingSeconds = 60
             } else {
-                countdownText.text = "(" + remainingSeconds + "秒)"
+                getCodeButton.text = "(" + remainingSeconds + "秒)"
             }
         }
     }

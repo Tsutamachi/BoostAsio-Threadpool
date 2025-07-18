@@ -387,32 +387,33 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
     }
 
     MYSQL* conn = conn_ptr->_con.get();
-    MYSQL_STMT* stmt = nullptr;
-    MYSQL_BIND binds[1] = {};
-    MYSQL_BIND result_binds[4] = {};
-    MYSQL_RES* meta = nullptr;
+    MYSQL_STMT* stmt = nullptr;//预处理语句句柄
+    MYSQL_BIND binds[1] = {};//绑定参数数组
+    MYSQL_BIND result_binds[4] = {};//结果集绑定数组
+    MYSQL_RES* meta = nullptr;//结果集元数据（所有的结果在一起，需要进一步处理）
     bool success = false;
 
     try {
-        stmt = mysql_stmt_init(conn);
+        stmt = mysql_stmt_init(conn);//1、创建预处理语句句柄
         if (!stmt) throw std::runtime_error("Failed to initialize statement: " + std::string(mysql_error(conn)));
 
-        const char* query = "SELECT id, userName, email, password FROM users WHERE email = ?";
-        if (mysql_stmt_prepare(stmt, query, strlen(query)) != 0)
+        const char* query = "SELECT id, userName, email, password FROM users WHERE email = ?";//？为占位符，通过绑定数组进行传递
+        if (mysql_stmt_prepare(stmt, query, strlen(query)) != 0)//2、预编译这一条查询语句，只需要编译一次即可多次使用
             throw std::runtime_error("Failed to prepare statement: " + std::string(mysql_stmt_error(stmt)));
 
-        // 绑定查询参数
+
         binds[0].buffer_type = MYSQL_TYPE_STRING;
         binds[0].buffer = const_cast<char*>(email.data());
         binds[0].buffer_length = email.size();
-        if (mysql_stmt_bind_param(stmt, binds) != 0)
+        if (mysql_stmt_bind_param(stmt, binds) != 0)// 3、绑定查询参数--email的“ ？”
             throw std::runtime_error("Failed to bind parameters: " + std::string(mysql_stmt_error(stmt)));
 
-        if (mysql_stmt_execute(stmt) != 0)
+        if (mysql_stmt_execute(stmt) != 0)// 4、执行查询
             throw std::runtime_error("Failed to execute statement: " + std::string(mysql_stmt_error(stmt)));
 
-        meta = mysql_stmt_result_metadata(stmt);
-        if (!meta) throw std::runtime_error("Failed to get result metadata: " + std::string(mysql_error(conn)));
+        meta = mysql_stmt_result_metadata(stmt);//获取查询结果的元数据信息
+        if (!meta)
+            throw std::runtime_error("Failed to get result metadata: " + std::string(mysql_error(conn)));
 
         // 为结果分配足够空间
         userInfo.name.resize(256);
@@ -446,10 +447,10 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
         result_binds[3].length = &pwd_len;
         result_binds[3].is_null = &is_null[3];
 
-        if (mysql_stmt_bind_result(stmt, result_binds) != 0)
+        if (mysql_stmt_bind_result(stmt, result_binds) != 0)// 5、获取结果集
             throw std::runtime_error("Failed to bind result: " + std::string(mysql_stmt_error(stmt)));
 
-        // 执行查询
+        // 6、获取结果
         if (mysql_stmt_fetch(stmt) == MYSQL_NO_DATA) {
             std::cerr << "User not found by email: " << email << std::endl;
             return false;
@@ -480,7 +481,7 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
         success = false;
     }
 
-    if (stmt) mysql_stmt_close(stmt);
+    if (stmt) mysql_stmt_close(stmt);//清理资源
     if (meta) mysql_free_result(meta);
     pool_->returnConnection(std::move(conn_ptr));
 

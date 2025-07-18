@@ -6,29 +6,39 @@ Item {
     id:root
     width: parent.width
     height: parent.height
+
     property alias stackView: _stackView
+
+
     // 导航方法
-    function lodermainwindows() {
-        stackView.push(Qt.resolvedUrl("Main.qml"))
-    }
     function loderregister(registerType) {
         // 直接推入 Page 组件（无需创建组件实例，因为 register.qml 是 Page 类型）
         stackView.push(Qt.resolvedUrl("Register.qml"), {
             registerType: registerType  // 传递参数（需 Page 支持属性赋值）
         });
     }
+    function lodermainwindows() {
+        removeregister()
+        stackView.push(Qt.resolvedUrl("Main.qml"))
+    }
     function lodercode() {
+        removeregister()
         stackView.push(Qt.resolvedUrl("code.qml"))
     }
     function loderlogin() {
+        removeregister()
         stackView.push(Qt.resolvedUrl("Firstlogin.qml"))
+    }
+    function loderserverlogin() {
+        removeregister()
+        stackView.push(Qt.resolvedUrl("ServereMain.qml"))
     }
     function removeregister() {
         stackView.pop()
-        // stackView.pop()
     }
-    function loderserverlogin() {
-        stackView.push(Qt.resolvedUrl("ServereMain.qml"))
+
+    function getCurrentPage() {
+        return stackView.currentItem
     }
     StackView {
         id: _stackView
