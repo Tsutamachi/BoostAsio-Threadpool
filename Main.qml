@@ -1,13 +1,13 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-
+//Client的主页面
 Page {
     id: window
     width: 1100
     height: 700
     visible: true
-    title: "Baidu Netdisk Clone"
+    title: "LeYan Netdisk Clone"
     background: Rectangle { color: "#ffffff" }
     // 顶部栏
     Rectangle {

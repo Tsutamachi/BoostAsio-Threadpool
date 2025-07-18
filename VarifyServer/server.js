@@ -5,6 +5,7 @@ const const_module = require('./const')
 const { v4: uuidv4 } = require('uuid');
 const emailModule = require('./email');
 const redis_module=require('./redis');
+
 async function GetVarifyCode(call, callback) {
     console.log("email is ", call.request.email)
     try{

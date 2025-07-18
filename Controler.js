@@ -1,7 +1,9 @@
 // 该方法用于发送登录请求
-function loginRequest(username, password, callback) {
+function loginRequest(username, password,serverip, callback) {
     var request = new XMLHttpRequest()
-    request.open("POST", "http://localhost:8080/user_login")
+
+    const url = `http://${serverip}:8080/post_userlogin`;
+    request.open("POST", url)
 
     request.setRequestHeader("Content-Type", "application/json")
     let data = {
@@ -26,21 +28,19 @@ function loginRequest(username, password, callback) {
             }
             catch(error){
                 console.log("服务器未开启,请先开始服务器完成登陆")
-                firstlogin.loginErrorText.text="为检测到启动的服务器，请先启动服务器之后完成登陆"
+                firstlogin.loginErrorText.text="未检测到启动的服务器，请先启动服务器之后完成登陆"
                 firstlogin.loginErrorText.visible=true
             }
-
-
         }
     }
 }
 
 // 该方法用于发送验证码请求
-function varifiyRequest(email,server, callback) {
+function verifyEmailRequest(email,serverip, callback) {
 
     try{
         var request = new XMLHttpRequest()
-        const url = `http://${server}:8080/get_varifycode`;
+        const url = `http://${serverip}:8080/post_verifyemail`;
         request.open("POST", url)
         request.setRequestHeader("Content-Type", "application/json")
         let data = {
@@ -64,7 +64,15 @@ function varifiyRequest(email,server, callback) {
                     callback(response)
                 }
                 catch(error){
-                    // console.log("指定服务器不存在或")
+                    var resgister = content.getCurrentPage()
+                    if (resgister && resgister.isRegisterPage) {
+                            console.log("当前页面是注册页")
+                            // 访问页面的属性/方法
+                            console.log("注册类型:", currentPage.registerType)
+                    }else{
+                        console.log("当前页面不是注册页")
+                    }
+
                     resgister.loginErrorText.text="连接指定服务器失败请检查，\n必须指定服务器后才能进行邮箱验证服务！"
                     resgister.loginErrorText.visible=true
                 }
@@ -72,6 +80,7 @@ function varifiyRequest(email,server, callback) {
         }
     }
     catch(e){
+        var resgister = content.getCurrentPage()
         resgister.loginErrorText.text="连接指定服务器失败请检查，\n必须指定服务器后才能进行邮箱验证服务！"
         resgister.loginErrorText.visible=true
     }
@@ -81,7 +90,7 @@ function varifiyRequest(email,server, callback) {
 //请求发送邮箱验证码
 function registerRequest(email,name,passwd,confirm,server,varifycode,callback) {
     var request = new XMLHttpRequest()
-    const url = `http://${server}:8080/user_register`;
+    const url = `http://${server}:8080/post_userregister`;
     request.open("POST", url)
     request.setRequestHeader("Content-Type", "application/json")
     let data = {

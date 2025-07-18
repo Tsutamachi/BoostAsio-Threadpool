@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import com.startserver 1.0
+//Server的主页面
 Page {
     id: window
     width: 1100

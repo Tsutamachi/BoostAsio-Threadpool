@@ -1,4 +1,5 @@
-<RCC>
+<!DOCTYPE RCC>
+<RCC version="1.0">
     <qresource prefix="/">
         <file>icons/home.png</file>
         <file>icons/upload.png</file>
@@ -6,6 +7,5 @@
         <file>icons/software.png</file>
         <file>icons/login.png</file>
         <file>icons/seting.png</file>
-        <!-- 添加其他资源文件 -->
     </qresource>
 </RCC>

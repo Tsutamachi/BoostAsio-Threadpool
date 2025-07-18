@@ -34,6 +34,7 @@ set(CMAKE_AUTOMOC ON)
 # 添加可执行文件
 add_executable(
     MyJsonServer
+    resources.qrc
     main.cpp
     cserver.h
     cserver.cpp
@@ -79,7 +80,6 @@ add_executable(
     Content.qml
     Controler.js
     register.qml
-    resources.qrc
     delayedthread.h
     Register.qml
     code.qml
@@ -91,8 +91,22 @@ add_executable(
     MysqlMgr.cpp MysqlMgr.h
     CServerStart.h
     CServerStart.cpp
+    # cfileloderstart.h cfileloderstart.cpp
+    # uploadclient.h uploadclient.cpp
 )
+# qt_add_resources(PROJECT_RESOURCES
+#     "resources"
+#     PREFIX "/"
+#     FILES
+#         icons/home.png
+#         icons/upload.png
+#         icons/message.png
+#         icons/software.png
+#         icons/login.png
+#         icons/seting.png
+# )
 
+# add_executable(MyJsonServer ${SOURCES} ${PROJECT_RESOURCES})
 # 编译特性
 target_compile_features(MyJsonServer PRIVATE cxx_std_20)
 

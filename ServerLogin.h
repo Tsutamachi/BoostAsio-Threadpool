@@ -12,13 +12,16 @@ class ServerLogin:public QObject
 {
     Q_OBJECT
     QML_ELEMENT
-private:
-    MYSQL *conn;
 
 public:
-    ServerLogin(QObject *parent = nullptr);
     Q_INVOKABLE int  serverLogin(QString account, QString password);
-    map<std::string, std::string> queryemailAndPassword();
+
+    ServerLogin(QObject *parent = nullptr);
     bool accountIsExist(string account, string password);
     bool passwordIsCorrect(string account, string password);
+
+    map<std::string, std::string> queryemailAndPassword();
+
+private:
+    MYSQL *conn;
 };

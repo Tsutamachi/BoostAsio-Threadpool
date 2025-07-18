@@ -406,10 +406,11 @@ void LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
 
 void LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
 {
-        std::cout<<"------------is start login-----------";
+        std::cout<<"------------is start login-----------\n";
         auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
         std::cout << "receive body is " << body_str << std::endl;
         connection->m_http_response.set(boost::beast::http::field::content_type, "text/json");
+
         Json::Value root;
         Json::Reader reader;
         Json::Value src_root;
@@ -423,8 +424,10 @@ void LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
         }
         auto email = src_root["email"].asString();
         auto pwd = src_root["passwd"].asString();
+
         UserInfo userInfo;
-        std::cout<<pwd;
+        std::cout<<pwd<<std::endl;
+
         bool pwd_valid = MysqlMgr::GetInstance()->CheckPwd(email, pwd, userInfo);
         if (!pwd_valid) {
             std::cout << " user pwd not match" << std::endl;
