@@ -14,9 +14,9 @@ Page {
     CServerStart{
         id:server;
     }
-    CFileloderStart{
-        id:serverfile
-    }
+    // CFileloderStart{
+    //     id:serverfile
+    // }
     // 顶部栏
     Rectangle {
         id: topBar
@@ -42,7 +42,7 @@ Page {
                    anchors.left: logoImage.right
                    anchors.leftMargin: 10 // 标题与图片的间距
                    anchors.verticalCenter: parent.verticalCenter
-               }
+        }
         Rectangle {
                 id: rightImageBackground
                 color: "#457ec9" // 设置您想要的背景颜色

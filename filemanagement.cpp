@@ -25,7 +25,7 @@ bool FileManagement::AddFile(const std::string &session_uuid,
 
 void FileManagement::AddHashRetransmitDataPacket(const std::string &session_uuid,
                                                  short file_id,
-                                                 unsigned int seq,
+                                                 uintmax_t seq,
                                                  const std::vector<char> &data)
 {
     std::lock_guard<std::mutex> lock(m_GlobalMutex);
@@ -37,7 +37,7 @@ void FileManagement::AddHashRetransmitDataPacket(const std::string &session_uuid
 
 bool FileManagement::AddPacket(const std::string &session_uuid,
                                short file_id,
-                               unsigned int seq,
+                               uintmax_t seq,
                                const std::vector<char> &data)
 {
     std::lock_guard<std::mutex> lock(m_GlobalMutex);

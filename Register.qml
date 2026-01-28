@@ -35,6 +35,14 @@ Page {
             Layout.fillWidth: true
 
         }
+        // 仅Client注册显示
+        TextField {
+            id: serverUserField
+            visible: registerType === "client"
+            placeholderText: "服务器用户名"
+            Layout.fillWidth: true
+
+        }
 
         RowLayout {
             Layout.fillWidth: true
@@ -65,7 +73,7 @@ Page {
                         return
                     }
                     else if(!serverUserField.text){
-                        loginErrorText.text="请先输入最后一栏的指定服务器进行验证码获取服务！"
+                        loginErrorText.text="请先指定服务器进行验证码获取服务！"
                         loginErrorText.visible=true
                         return
                     }
@@ -116,14 +124,7 @@ Page {
 
         }
 
-        // 仅Client注册显示
-        TextField {
-            id: serverUserField
-            visible: registerType === "client"
-            placeholderText: "服务器用户名"
-            Layout.fillWidth: true
 
-        }
 
         Button {
             text: "注册"

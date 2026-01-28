@@ -15,7 +15,7 @@ Page {
     // 顶部栏
     Uploadclient{
         id:_clientupload
-        ip: ""
+        ip: "127.0.0.1" //Todo:这里之后要变成Client自己的ip
 
     }
     Rectangle {

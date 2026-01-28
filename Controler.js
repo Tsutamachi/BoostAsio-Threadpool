@@ -30,9 +30,9 @@ function loginRequest(serverip,username, password, callback) {
             try{
                 let response = JSON.parse(request.responseText)
                 if (response.error === 0) {
-                    console.log("成功")
+                    console.log("js:loginRequest成功")
                 } else {
-                    console.log("失败")
+                    console.log("js:loginRequest失败")
                 }
                 callback(response)
             }
@@ -47,7 +47,6 @@ function loginRequest(serverip,username, password, callback) {
 
 // 该方法用于发送验证码请求
 function verifyEmailRequest(email,serverip, callback) {
-
     try{
         var request = new XMLHttpRequest()
         const url = `http://${serverip}:8080/post_verifyemail`;
@@ -67,9 +66,9 @@ function verifyEmailRequest(email,serverip, callback) {
                 try{
                     let response = JSON.parse(request.responseText)
                     if (response.error === 0) {
-                        console.log("成功")
+                        console.log("js:verifyEmailRequest成功")
                     } else {
-                        console.log("失败")
+                        console.log("js:verifyEmailRequest失败")
                     }
                     callback(response)
                 }
@@ -120,11 +119,11 @@ function registerRequest(email,name,passwd,confirm,server,varifycode,callback) {
         if (request.readyState === XMLHttpRequest.DONE) {
             let response = JSON.parse(request.responseText)
             if (response.error === 0) {
-                console.log("成功")
+                console.log("Js:registerRequest成功")
                 // 这里的messagelabal指的是loginpage里面的label类型
                 // messageLabel.text = "✅ 登录成功，欢迎 " + response.role + ": " + response.user
             } else {
-                console.log("失败")
+                console.log("Js:registerRequest失败")
                 // messageLabel.text = "❌ " + response.message
             }
             console.log(response.error)

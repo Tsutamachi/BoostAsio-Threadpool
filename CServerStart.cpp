@@ -1,9 +1,10 @@
 #include "CServerStart.h"
+#include "defines.h"
 #include <QThread>
 
 CServerStart::CServerStart(QObject *parent) : QObject(parent)
 {
-    unsigned short port = 8080;
+    unsigned short port = SERVERPORT;
     _ioc = std::make_shared<net::io_context>(1);
     _signals = std::make_shared<boost::asio::signal_set>(*_ioc, SIGINT, SIGTERM);
 

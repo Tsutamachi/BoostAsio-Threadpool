@@ -55,11 +55,15 @@ public:
 
     Role GetRole() const;
 
+    // 获取 io_context 的不可修改引用（只读访问）
+    boost::asio::io_context& GetIoContext() const noexcept {
+        return m_IoContext;
+    }
+
 private:
     void HandleReadHead(const boost::system::error_code& error,
                         size_t bytes_transferred,
                         std::shared_ptr<CSession> shared_self);
-
 
     void StartHttpProcessing(std::shared_ptr<CSession> self);
 

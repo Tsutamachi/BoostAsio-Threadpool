@@ -1,4 +1,5 @@
 #pragma once
+//Redis封装操作
 #include "defines.h"
 #include "hiredis/hiredis.h"
 #include <queue>
@@ -24,7 +25,7 @@ public:
             }
             // ????????
             // ???????????
-            auto reply = (redisReply*)redisCommand(context, "AUTH %s", pwd);
+            auto reply = (redisReply*)redisCommand(context, "AUTH %s", pwd);//客户端身份认证​​
             if (reply->type == REDIS_REPLY_ERROR) {
                 std::cout << "error" << std::endl;
                 freeReplyObject(reply);
@@ -58,6 +59,7 @@ public:
         }
     }
 
+    //清除一个connection
     void ClearConnections() {
         std::lock_guard<std::mutex> lock(mutex_);
         while (!connections_.empty()) {

@@ -1,4 +1,6 @@
 #pragma once
+
+//通过Base64将二进制数据转为字符串数据，用于JsonCpp格式数据传输
 #include <string>
 #include <vector>
 

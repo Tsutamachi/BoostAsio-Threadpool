@@ -40,6 +40,7 @@ CSession::CSession(boost::asio::io_context &io_context,
     m_RecevHeadNode = std::make_shared<MsgNode>(HEAD_TOTAL_LEN);
     std::memset(m_FileIds, true, sizeof(m_FileIds));
     std::cout << "CSession Construct!" << std::endl;
+    GetServerOwner()->GetHardDiskUseableSpace();
 }
 
 CSession::~CSession()

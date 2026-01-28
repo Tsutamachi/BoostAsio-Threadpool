@@ -144,7 +144,6 @@ target_link_libraries(MyJsonServer PRIVATE
     /usr/lib/libjsoncpp.so
 )
 
-
 set_target_properties(MyJsonServer PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON

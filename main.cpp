@@ -1,4 +1,10 @@
-// //优雅退出：Asio版本
+// #include <QGuiApplication>
+// #include <QQmlApplicationEngine>
+// #include "ServerLogin.h"
+// #include "ServerRegister.h"
+// #include "CServerStart.h"
+// #include "cfileloderstart.h"
+// #include "uploadclient.h"
 // #include "client.h"
 // #include "cserver.h"
 // #include "defines.h"
@@ -7,24 +13,22 @@
 // #include <regex>
 // #include <json/value.h>
 // #include <json/reader.h>
-// // #include <QGuiApplication>
-// // #include <QQmlApplicationEngine>
-// // #include "cclient.h"
-
 
 // using namespace boost::asio;
 // using ip::tcp;
 
-
-
 // int main(int argc, char *argv[])
 // {
 //     // qmlRegisterType<CClient>("com.example", 1, 0, "CClient");
+//     // qmlRegisterType<CClient>("com.example", 1, 0, "CClient");
 //     // 注册serverlogin并在点击按钮的时候动态加载
-//     // qmlRegisterType<ServerLogin>("com.example", 1, 0, "ServerLogin");
-//     // qmlRegisterType<ServerRegister>("com.register", 1, 0, "ServerRegister");
-//     // qmlRegisterType<CServerStart>("com.startserver", 1, 0, "CServerStart");
-//     // QGuiApplication app(argc, argv);
+//     qmlRegisterType<ServerLogin>("com.example", 1, 0, "ServerLogin");
+//     qmlRegisterType<ServerRegister>("com.register", 1, 0, "ServerRegister");
+//     qmlRegisterType<CServerStart>("com.startserver", 1, 0, "CServerStart");
+//     qmlRegisterType<CFileloderStart>("com.cfileloderstart", 1, 0, "CFileloderStart");
+//     qmlRegisterType<Uploadclient>("com.uploadclient", 1, 0, "Uploadclient");
+//     QGuiApplication app(argc, argv);
+
 
 //     bool flag = true;
 //     while (flag) {
@@ -34,6 +38,23 @@
 //         std::cout << "Are you going to log in as Server?(yes->Server  no->Client) ";
 //         std::getline(std::cin, role);
 
+
+//     // 使用相对路径或绝对路径加载QML文件
+//     // 例如，如果Main.qml位于项目目录的qml子目录中，可以使用如下路径：
+//     // const QUrl url(QStringLiteral("/run/media/root/bccbc01c-f3f5-462e-a7ed-900e1364cf9d/01/Home_page/firstlogin.qml"));
+
+//     const QUrl url(QStringLiteral("/root/socket/my/llfc/MyJsonServer/Window.qml"));
+//     // const QUrl url(QStringLiteral("/run/media/root/bccbc01c-f3f5-462e-a7ed-900e1364cf9d/01/Home_page/Window.qml"));
+//     QObject::connect(
+//                 &engine,
+//                 &QQmlApplicationEngine::objectCreated,
+//                 &app,
+//                 [url](QObject *obj, const QUrl &objUrl) {
+//         if (!obj && url == objUrl)
+//             QCoreApplication::exit(-1);
+//     },
+//     Qt::QueuedConnection);
+//     engine.load(url);
 //         //Log as Server
 //         if (role == "YES" || role == "yes" || role == "Yes"|| role == "y"|| role == "Y") {
 //             try {
@@ -77,8 +98,8 @@
 //                 try {
 //                     std::string serverip;
 //                     std::cout << "Please enter the server ipaddress(v4) you want to link with";
-//                     serverip = "127.0.0.1";
-//                     // std::getline(std::cin, serverip);
+//                     // serverip = "127.0.0.1";
+//                     std::getline(std::cin, serverip);
 
 //                     // 使用正则表达式检查 IPv4 地址格式
 //                     std::regex ip_regex(
@@ -210,9 +231,8 @@
 
 //         }
 //     }
+
 // }
-
-
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -239,11 +259,8 @@ int main(int argc, char *argv[])
     // 使用相对路径或绝对路径加载QML文件
     // 例如，如果Main.qml位于项目目录的qml子目录中，可以使用如下路径：
     // const QUrl url(QStringLiteral("/run/media/root/bccbc01c-f3f5-462e-a7ed-900e1364cf9d/01/Home_page/firstlogin.qml"));
-<<<<<<< HEAD
-    const QUrl url(QStringLiteral("/root/开源4/BoostAsio-Threadpool/Window.qml"));
-=======
     const QUrl url(QStringLiteral("/root/socket/my/llfc/MyJsonServer/Window.qml"));
->>>>>>> Zy-UI
+
     // const QUrl url(QStringLiteral("/run/media/root/bccbc01c-f3f5-462e-a7ed-900e1364cf9d/01/Home_page/Window.qml"));
     QObject::connect(
                 &engine,
@@ -258,3 +275,4 @@ int main(int argc, char *argv[])
 
     return app.exec();
 }
+

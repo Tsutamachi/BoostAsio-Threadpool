@@ -5,15 +5,18 @@
 #include "file.h"
 #include "filemanagement.h"
 #include "hashmd5.h"
-#include <filesystem>
+#include "VerifyGrpcClient.h"
+#include "MysqlMgr.h"
+#include "RedisMgr.h"
+
 #include <json/json.h>
 #include <json/reader.h>
 #include <json/value.h>
 #include <string>
 #include <boost/beast.hpp>
-#include "VerifyGrpcClient.h"
-#include "MysqlMgr.h"
-#include "RedisMgr.h"
+#include <boost/filesystem.hpp>
+#include <random>
+#include <filesystem>
 
 //这一层的数据处理，只需要考虑数据包部分，包头由MegNode进行自动封装
 LogicSystem::LogicSystem()
@@ -61,9 +64,9 @@ void LogicSystem::DealMsg()
                 auto meg_node = m_MegQue.front();
 
                 if (meg_node->m_Session->m_Role == CSession::Role::Client) {
-                    // std::cout << std::endl
-                    //           << "Client停止了传输 RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId
-                    //           << std::endl;
+                    std::cout << std::endl
+                              << "Client停止了传输RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId
+                              << std::endl;
                     auto call_back_iter = m_ClientFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
                     if (call_back_iter
                             == m_ClientFunCallBacks
@@ -108,7 +111,7 @@ void LogicSystem::DealMsg()
 
         if (meg_node->m_Session->m_Role == CSession::Role::Client) {
             std::cout << std::endl
-                      << "Client正在处理RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId
+                      << "Client正在处理的RecevMeg Id is: " << meg_node->m_RecevNode->m_MsgId
                       << std::endl;
             auto call_back_iter = m_ClientFunCallBacks.find(meg_node->m_RecevNode->m_MsgId);
             if (call_back_iter == m_ClientFunCallBacks.end()) {
@@ -348,7 +351,6 @@ int LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
         return true;
     }
-
     auto email = src_root["email"].asString();
     auto name = src_root["user"].asString();
     auto pwd = src_root["passwd"].asString();
@@ -362,6 +364,7 @@ int LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
         boost::beast::ostream(connection->m_http_response.body()) << jsonstr;
         return true;
     }
+
     std::string  varify_code;
     bool b_get_varify = RedisMgr::GetInstance()->Get(CODEPREFIX+src_root["email"].asString(), varify_code);
     if (!b_get_varify) {
@@ -408,7 +411,7 @@ int LogicSystem::Http_Post_UserRegister(std::shared_ptr<CSession> connection)
 
 int LogicSystem::Http_Post_UserLogin(std::shared_ptr<CSession> connection)
 {
-        std::cout<<"------------is start login-----------\n";
+        std::cout<<"------------LogicSystem：is start login-----------\n";
         auto body_str = boost::beast::buffers_to_string(connection->m_http_request.body().data());
         std::cout << "receive body is " << body_str << std::endl;
         connection->m_http_response.set(boost::beast::http::field::content_type, "text/json");
@@ -518,7 +521,7 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
         if (!file) {
             throw std::runtime_error("Client open file failed: " + filepath);
         }
-        unsigned int file_size = file.tellg();
+        uintmax_t file_size = file.tellg();
         file.seekg(0);
 
         //获取文件名（并非路径）
@@ -527,8 +530,8 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
 
         //计算总包数
         // unsigned int total_packets = (file_size + FILE_DATA_LEN - 1) / FILE_DATA_LEN;
-        unsigned int total_packets = file_size / FILE_DATA_LEN;
-        if ((file_size % FILE_DATA_LEN))
+        uintmax_t total_packets = file_size / FILE_DATA_LEN;
+        if (file_size % FILE_DATA_LEN)
             total_packets++;
 
         if (!file.is_open()){
@@ -541,7 +544,8 @@ void LogicSystem::RequestUpload(std::shared_ptr<CSession> session, const std::st
                                                                              file_size,
                                                                              total_packets,
                                                                              filehash,
-                                                                             std::move(file));
+                                                                             std::move(file),
+                                                                             session);
 
         //构造要传给Server的数据
         Json::Value root;
@@ -574,8 +578,8 @@ void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const s
     }
 
     std::string filename = root["FileName"].asString();
-    unsigned int filesize = root["FileSize"].asUInt();
-    unsigned int filenum = root["TotalPacketsNum"].asUInt(); //总的包数
+    uintmax_t filesize = root["FileSize"].asUInt();
+    uintmax_t filenum = root["TotalPacketsNum"].asUInt(); //总的包数
     std::string filehash = root["FileHash"].asString();
     std::cout << std::endl
               << "File Name:\t" << filename << std::endl
@@ -610,7 +614,8 @@ void LogicSystem::HandleUploadRequest(std::shared_ptr<CSession> session, const s
                                             filenum,
                                             filehash,
                                             session)));
-            std::cout << "FiletoRecev destructed!" << std::endl;
+            FileManagement::GetInstance()->findFile(session->GetUuid(),fileid)->m_FileTimer.start();
+            std::cout << "FiletoRecev constructed!" << std::endl;
         } catch (const std::runtime_error &e) {
             std::cerr << "AddFile failed: " << e.what() << std::endl;
             Json::Value Reject;
@@ -674,88 +679,11 @@ void LogicSystem::HandleFileUpload(std::shared_ptr<CSession> session, const std:
         std::cout<<"LogicSystem::RequestUpload: file open false!"<<std::endl;
     }
 
-    std::vector<char> dataBuffer(FILE_DATA_LEN);
-    unsigned int seq = 0;
-    unsigned int total = 0;
-
-    while (filetosend->m_FileUploadStream.read(reinterpret_cast<char *>(dataBuffer.data()),
-                                               FILE_DATA_LEN)) {
-        size_t bytes_read = filetosend->m_FileUploadStream.gcount(); //读取的字符数
-        if (bytes_read == 0)
-            break;
-        // std::cout << "本次读取了 ：" << bytes_read << " 个字节。" << std::endl;
-        total += bytes_read;
-
-        // 构造 JSON 数据
-        Json::Value Msg;
-        Msg["FileId"] = fileid;
-        // Msg["Sequence"] = static_cast<Json::UInt>(seq);
-        Msg["Sequence"] = seq;
-        // Data为Base64 编码(利用openssl/BoostAsio库中函数自己实现编码).Json不能传送二进制文件，只能传文本
-        Msg["Data"] = base64_encode(dataBuffer.data(), bytes_read);
-
-        std::string target = Msg.toStyledString();
-        if (target.size() > std::numeric_limits<short>::max()) { //max为32767
-            throw std::runtime_error("Packet too large");
-        }
-
-        std::cout << "Send sequence :" << seq << std::endl;
-        // std::cout << "Send length :" << ta而rget.size() << std::endl;
-        std::cout << "Send length :" << bytes_read << std::endl;
-
-        //这里主动插入一个缺包(第10个包)进行调试
-        // if(seq == 9){
-        //     seq++;
-        //     dataBuffer.clear();
-        // }
-        // 加入发送队列
-        session->Send(target.data(), target.size(), FileDataBag);
-
-        seq++;
-        dataBuffer.clear();
-    }
-
-    if (filetosend->m_FileUploadStream.eof()) {
-        //检查是否需要最后一个包
-        if (total < filetosend->m_FileSize) {
-            Json::Value Msg;
-            Msg["FileId"] = fileid;
-            Msg["Sequence"] = seq;
-
-            size_t last_bytes_read = filetosend->m_FileUploadStream.gcount();
-            if (last_bytes_read > 0) { // 确保读取了数据
-                Msg["Data"] = base64_encode(dataBuffer.data(), last_bytes_read);
-
-                std::string target = Msg.toStyledString();
-                if (target.size() > std::numeric_limits<short>::max()) {
-                    throw std::runtime_error("Packet too large");
-                }
-
-                std::cout << "Send sequence :" << seq << std::endl;
-                std::cout << "Send length :" << last_bytes_read << std::endl;
-                session->Send(target.data(), target.size(), FileDataBag);
-
-                seq++;
-                dataBuffer.clear();
-            }
-            std::cout << "File eof!" << std::endl;
-        }
-    }
-    //关闭文件
-    if (filetosend->m_FileUploadStream.is_open()) {
-        filetosend->m_FileUploadStream.close();
-    }
-
-    //发送完后需要再接收一个Server确认文件完整的包。在获得hash确认完整后再在Client的File队列中删除该File
-    Json::Value Finish;
-    Finish["FileId"] = fileid;
-    Finish["Filefinish"] = 1;
-    std::string target1 = Finish.toStyledString();
-    std::cout << "Send finished." << std::endl;
-    session->Send(target1.data(), target1.size(), FileFinish);
-    //如果时间内（20s）Server没有收到FileFinish,要重发这个包(boostasio中有定时器)
-    filetosend->m_FinishTimer = std::make_shared<boost::asio::steady_timer>(session->m_IoContext);
-    filetosend->StartFinishTimer(session);
+    filetosend->m_SendFileThread.start([this,filetosend]{//不捕获this,找不到使用的函数
+        std::cout<<"m_SendFileThread start!"<<std::endl;
+        filetosend->SendFile(); });//定义延迟线程的运行内容
+    filetosend->m_SendFileThread.detach();//detach不会阻塞主线程，join会阻塞在主线程
+    //Todo:有一个问题：正在传输的时候进行缺包重发时，使用的是相同的文件流，lseek会冲突
 }
 
 //Server函数   Server接受数据
@@ -773,7 +701,7 @@ void LogicSystem::HandleData(std::shared_ptr<CSession> session, const std::strin
     }
 
     short fileid = static_cast<short>(root["FileId"].asInt());
-    unsigned int seq = root["Sequence"].asUInt();
+    uintmax_t seq = root["Sequence"].asUInt();
     std::string data = root["Data"].asString();
     std::vector<char> filedata = base64_decode(data); //二进制文件
     // std::cout << "本次接受数据长度 :" << filedata.size() << std::endl;
@@ -781,23 +709,26 @@ void LogicSystem::HandleData(std::shared_ptr<CSession> session, const std::strin
     FileManagement::GetInstance()->AddPacket(session->GetUuid(), fileid, seq, filedata);
     std::cout << "Received file sequence :" << seq << std::endl;
 
-    // 检测缺包
-    // std::shared_ptr<FileToReceve> file =
-    //         FileManagement::GetInstance()->findFile(session->GetUuid(),
-    //                                                 fileid);
-    // if (file->CheckMissingPackets()) {
-    //     // 构造 TellLostBag 消息
-    //     Json::Value Msg;
-    //     Msg["Fileid"] = fileid;
-    //     std::cout << "Missing bag sequences :" << std::endl;
-    //     for (auto seq : file->m_MissingSeqs) {
-    //         std::cout << seq << "'\t";
-    //         Msg["MissingBags"].append(seq); //Json数组
-    //     }
-    //     std::cout << std::endl;
-    //     std::string target = Msg.toStyledString();
-    //     session->Send(target.data(), target.size(), TellLostBag);
-    // }
+
+    std::shared_ptr<FileToReceve> file =
+            FileManagement::GetInstance()->findFile(session->GetUuid(),fileid);
+    if(file->b_AbleToReceiveLostBag && (seq % CheckLostPerBags == 0))//每XX个包检测一次缺包
+    {
+        if (file->CheckMissingPackets()) {
+            // 构造 TellLostBag 消息
+            Json::Value Msg;
+            Msg["Fileid"] = fileid;
+            std::cout << "Missing bag sequences :" << std::endl;
+            for (auto seq : file->m_MissingSeqs) {
+                std::cout << seq << "'\t";
+                Msg["MissingBags"].append(seq); //Json数组
+            }
+            std::cout << std::endl;
+            std::string target = Msg.toStyledString();
+            session->Send(target.data(), target.size(), TellLostBag);
+            file->b_AbleToReceiveLostBag = false;
+        }
+    }
 }
 
 //Server函数   Server收到Client端发送完毕的消息。
@@ -822,54 +753,11 @@ void LogicSystem::ServerHandleFinalBag(std::shared_ptr<CSession> session,
 
     // flag检测缺包
     auto file = FileManagement::GetInstance()->findFile(session->GetUuid(), fileid);
-    bool flag = file->CheckMissingPackets();
-    if (flag) {
-        // 有缺包
-        auto MissingSeqs = file->GetMissingSeqs();
-
-        Json::Value Msg;
-        std::cout << "Missing bag sequences :" << std::endl;
-        for (auto seq : MissingSeqs) {
-            std::cout << seq << "'\t";
-            Msg["MissingBags"].append(seq); //Json数组
-        }
-        std::cout<<std::endl;
-
-        Msg["Fileid"] = fileid;
-        std::string target = Msg.toStyledString();
-
-        session->Send(target.data(), target.size(), TellLostBag);
-    } else {
-        //没有缺包，hashMD5检测完整性-complete
-        if (file->m_FileSaveStream.is_open()){
-            file->m_FileSaveStream.close();
-            // std::cout<<"ServerHandleFinalBag fd close!"<<std::endl;
-        }
-
-        //FileSavePath后期可能需要改正
-        bool complete = VerifyFileHash(file->m_FileSavePath, file->m_FileHash);
-        if (complete) {
-            //Hash没有问题
-            Json::Value Msg;
-            Msg["FileId"] = fileid;
-            Msg["Missing"] = 0;
-            std::string target = Msg.toStyledString();
-            //这里可以rename修改 文件在Server存储的文件路径
-            session->Send(target.data(), target.size(), FileComplete);
-
-            session->m_FileIds[fileid] = true;
-            FileManagement::GetInstance()->removeFile(session->GetUuid(), fileid);
-            std::cout << "File upload complete! FileName: " << file->m_FileName << std::endl;
-
-        } else {
-            // hash验证失败--请求分块检验
-            Json::Value Msg;
-            Msg["FileId"] = fileid;
-            std::string target = Msg.toStyledString();
-
-            session->Send(target.data(), target.size(), RequestVerify);
-        }
-    }
+    file->b_IsFinalAccepted = true;
+    file->m_FinalCheckThread.start([this,file]{
+        std::cout<<"ServerHandleFinalBag::m_FinalCheckThread start!"<<std::endl;
+        file->FinalCheck(); });
+    file->m_FinalCheckThread.detach();
 }
 
 //Server->Client    Client发送HASH验证码
@@ -898,8 +786,8 @@ void LogicSystem::SendVerifyCode(std::shared_ptr<CSession> session, const std::s
     }
 
     std::vector<char> dataBuffer(Hash_Verify_Block);
-    unsigned int seq = 0;
-    unsigned int total = 0;
+    uintmax_t seq = 0;
+    uintmax_t total = 0;
     //一次检测10个包
     while (filetosend->m_FileUploadStream.read(reinterpret_cast<char *>(dataBuffer.data()),
                                                Hash_Verify_Block)) {
@@ -968,7 +856,7 @@ void LogicSystem::ReceiveVerifyCode(std::shared_ptr<CSession> session, const std
     }
 
     short fileid = root["FileId"].asInt();
-    unsigned int seq = root["Sequence"].asUInt();
+    uintmax_t seq = root["Sequence"].asUInt();
     std::string hashdata = root["Data"].asString();
     // 添加数据到File中
     auto file = FileManagement::GetInstance()->findFile(session->GetUuid(), fileid);
@@ -978,13 +866,18 @@ void LogicSystem::ReceiveVerifyCode(std::shared_ptr<CSession> session, const std
         throw std::runtime_error("m_VerifyStream open fails!");
         return;
     }
-    file->m_VerifyStream.seekg(0, std::ios::beg);
-    file->AddHashCode(hashdata, seq);
 
-    file->m_VerifyHashThread.start([file](){
+    file->m_VerifyHashThread.start([this,file](){
+        // std::cout<<"LogicSystem::ReceiveVerifyCode: start to VerifyHash"<<std::endl;
         file->VerifyHash();
     });
     file->m_VerifyHashThread.detach();
+    sleep(1);
+
+    file->m_VerifyStream.seekg(0, std::ios::beg);
+    file->AddHashCode(hashdata, seq);
+
+
 
     //所有发送接收后，会在对应的file中，发送SendDamagedBlock包
 }
@@ -1020,11 +913,11 @@ void LogicSystem::SendDamagedHashBlock(std::shared_ptr<CSession> session,
     size_t total = 0;
     std::vector<char> buffer(FILE_DATA_LEN);
     for (auto seq_value : missing_seqs) {
-        unsigned int seq = seq_value.asUInt();
+        uintmax_t seq = seq_value.asUInt();
         size_t start = seq * Hash_Verify_Block;
         file->m_FileUploadStream.seekg(start);
 
-        unsigned int seqnow = seq * 10;
+        uintmax_t seqnow = seq * 10;
         for (int i = 0; i < 10; ++i) { //发10个包
             file->m_FileUploadStream.read(buffer.data(), FILE_DATA_LEN);
             size_t bytes_read = file->m_FileUploadStream.gcount();
@@ -1077,7 +970,7 @@ void LogicSystem::ServerHandleDamagedHashBag(std::shared_ptr<CSession> session,
         return;
     }
     short fileid = root["FileId"].asInt();
-    unsigned int seq = root["Sequence"].asUInt();
+    uintmax_t seq = root["Sequence"].asUInt();
     std::string data = root["Data"].asString();
     std::vector<char> filedata = base64_decode(data); //二进制文件
 
@@ -1129,23 +1022,23 @@ void LogicSystem::HandleReTransmit(std::shared_ptr<CSession> session, const std:
         return;
     }
 
-    file->m_FileUploadStream.open(file->m_FilePath, std::ios::binary);
+    file->m_ReTransStream.open(file->m_FilePath, std::ios::binary);
 
     std::vector<char> buffer(FILE_DATA_LEN);
     size_t bytes_read = 0;
     //重传
     for (auto seq_value : missing_seqs) {
         // 计算文件偏移量
-        unsigned int seq = seq_value.asUInt();
+        uintmax_t seq = seq_value.asUInt();
         size_t start = seq * FILE_DATA_LEN;
-        file->m_FileUploadStream.seekg(start);
+        file->m_ReTransStream.seekg(start);
 
         // 读取数据（处理最后一个包可能不足长度）
-        file->m_FileUploadStream.read(buffer.data(), FILE_DATA_LEN);
-        bytes_read = file->m_FileUploadStream.gcount();
+        file->m_ReTransStream.read(buffer.data(), FILE_DATA_LEN);
+        bytes_read = file->m_ReTransStream.gcount();
 
         //最后一个包也做相同的处理。知识bytes_read比FILE_DATA_LEN少而已
-        // if (file->m_FileUploadStream.eof() && bytes_read < FILE_DATA_LEN){
+        // if (file->m_ReTransStream.eof() && bytes_read < FILE_DATA_LEN){
 
 
         // 发送数据
@@ -1183,9 +1076,9 @@ void LogicSystem::HandleReTransmit(std::shared_ptr<CSession> session, const std:
 
     }
 
-    if (file->m_FileUploadStream.is_open()) {
-        file->m_FileUploadStream.clear();
-        file->m_FileUploadStream.close();
+    if (file->m_ReTransStream.is_open()) {
+        file->m_ReTransStream.clear();
+        file->m_ReTransStream.close();
     }
 
     Json::Value Finish;
@@ -1196,6 +1089,7 @@ void LogicSystem::HandleReTransmit(std::shared_ptr<CSession> session, const std:
 }
 
 //Client->Server    Server接受缺包的重传后，再次检测
+// 收：ReTransLostBagFinished
 void LogicSystem::ReCheckFile(std::shared_ptr<CSession> session, const std::string &msg_data){
     //接受数据
     Json::Reader reader;
@@ -1206,55 +1100,15 @@ void LogicSystem::ReCheckFile(std::shared_ptr<CSession> session, const std::stri
     }
     short fileid = static_cast<short>(root["FileId"].asInt());
 
-    // flag检测缺包
     auto file = FileManagement::GetInstance()->findFile(session->GetUuid(), fileid);
-    bool flag = file->CheckMissingPackets();
-    if (flag) {
-        // 有缺包
-        auto MissingSeqs = file->GetMissingSeqs();
+    file->b_AbleToReceiveLostBag = true;
 
-        Json::Value Msg;
-        std::cout << "Missing bag sequences :" << std::endl;
-        for (auto seq : MissingSeqs) {
-            std::cout << seq << "'\t";
-            Msg["MissingBags"].append(seq); //Json数组
-        }
-        std::cout<<std::endl;
-
-        Msg["Fileid"] = fileid;
-        std::string target = Msg.toStyledString();
-
-        session->Send(target.data(), target.size(), TellLostBag);
-    } else {
-        //没有缺包，hashMD5检测完整性-complete
-        if (file->m_FileSaveStream.is_open()){
-            file->m_FileSaveStream.close();
-            // std::cout<<"ReCheckFile fd close!"<<std::endl;
-        }
-
-        //FileSavePath后期可能需要改正
-        bool complete = VerifyFileHash(file->m_FileSavePath, file->m_FileHash);
-        if (complete) {
-            //Hash没有问题
-            Json::Value Msg;
-            Msg["FileId"] = fileid;
-            Msg["Missing"] = 0;
-            std::string target = Msg.toStyledString();
-            //这里可以rename修改 文件在Server存储的文件路径
-            session->Send(target.data(), target.size(), FileComplete);
-
-            session->m_FileIds[fileid] = true;
-            FileManagement::GetInstance()->removeFile(session->GetUuid(), fileid);
-            std::cout << "File upload complete! FileName: " << file->m_FileName << std::endl;
-
-        } else {
-            // hash验证失败--请求分块检验
-            Json::Value Msg;
-            Msg["FileId"] = fileid;
-            std::string target = Msg.toStyledString();
-
-            session->Send(target.data(), target.size(), RequestVerify);
-        }
+    // flag检测缺包
+    if(file->b_IsFinalAccepted){
+        file->m_FinalCheckThread.start([this,file]{
+            std::cout<<"ReCheckFile::m_FinalCheckThread start!"<<std::endl;
+            file->FinalCheck(); });
+        file->m_FinalCheckThread.detach();
     }
 }
 

@@ -6,12 +6,16 @@
 #include <filesystem>
 #include <iostream>
 #include <json/value.h>
+#include "filemanagement.h"
+#include "base64_code.h"
+#include <boost/asio.hpp>
+#include <memory>
 
 //这是接收文件的函数
 FileToReceve::FileToReceve(short fileid,
                            std::string &sessionUuid,
                            std::string filename,
-                           unsigned int filesize,
+                           uintmax_t filesize,
                            int filenum,
                            std::string filehash,
                            std::shared_ptr<CSession> session)
@@ -25,10 +29,14 @@ FileToReceve::FileToReceve(short fileid,
     , m_AllReceivedFlags(filenum, false)
     , m_WindowStart(0)
     , m_CheckedReceiveSeq(0)
-    , m_Verify((filenum / 10) + 1, true)
+    , m_Verify((filenum / 10) + 1, false)
+    , m_HashCodes((filenum / 10) + 1)
     , m_NextVerifying(0)
     , m_RewriteIndex(0)
     , m_Session(session)
+    , b_AbleToReceiveLostBag(true)
+    , b_FlushFinished(false)
+    , b_IsFinalAccepted(false)
 
 {
     try {
@@ -112,7 +120,7 @@ void FileToReceve::FlushToDisk()
 
             m_NextExpectedSeq++;
 
-            std::cout<<"Flushed Seq: "<<i++<<std::endl;
+            std::cout<<"\nFlushed Seq: "<<i++<<std::endl<<"Flushed Size: "<<m_DataBuffer[buffer_pos].size()<<std::endl<<std::endl;
 
             // 文件传输完成检测
             if (m_NextExpectedSeq >= m_FileTotalPackets) {
@@ -123,20 +131,24 @@ void FileToReceve::FlushToDisk()
                     // m_FileSaveStream.close();
                     // std::cout<<"FlushtuDisk fd close!"<<std::endl;
                 // }
+                std::cout<<"FlushToDisk Finish!"<<std::endl;
+                b_FlushFinished = true;
+                m_CVFlushed.notify_one();
                 break;
             }
         } catch (std::system_error &e) {
             std::cout << e.what() << std::endl;
         }
     }
+
 }
 
 //在滑动窗口中检测缺包
 bool FileToReceve::CheckMissingPackets()
 {
     //应该从第一个没有确认接收的包的序号（已确认的最高连续序号。）开始，到WindowStart之间
-    std::vector<unsigned int> missing_seqs;
-    for (unsigned int i = m_WindowStart; i < m_LastReceivedSeq; ++i) {
+    std::vector<uintmax_t> missing_seqs;
+    for (uintmax_t i = m_WindowStart; i < m_LastReceivedSeq; ++i) {
         if (i >= m_FileTotalPackets)
             break;
 
@@ -153,22 +165,91 @@ bool FileToReceve::CheckMissingPackets()
     return false;
 }
 
-bool FileToReceve::CheckMissingPacketsInAll()
+bool FileToReceve::FinalCheck()
 {
-    for (int i = 0; i < m_FileTotalPackets; ++i) {
-        // 检查位标记
-        if (!m_AllReceivedFlags[i]) {
-            m_MissingSeqs.push_back(i);
-        }
-    }
+    try {
+        // flag检测缺包
+        bool flag = CheckMissingPackets();
+        if (flag) {
+            // 有缺包
+            auto MissingSeqs = GetMissingSeqs();
 
-    if (m_MissingSeqs.size() != 0)
-        return true;
-    else
-        return false;
+            Json::Value Msg;
+            std::cout << "Missing bag sequences :" << std::endl;
+            for (auto seq : MissingSeqs) {
+                std::cout << seq << "'\t";
+                Msg["MissingBags"].append(seq); //Json数组
+            }
+            std::cout<<std::endl;
+
+            Msg["Fileid"] = m_FileId;
+            std::string target = Msg.toStyledString();
+
+            m_Session->Send(target.data(), target.size(), TellLostBag);
+            return false;
+        } else {
+            //确保检测完整性前，已经全部Flush
+            std::unique_lock<std::mutex> lock(m_Mutex);
+            m_CVFlushed.wait(lock, [this] {
+                return b_FlushFinished;
+            });
+
+            //没有缺包，hashMD5检测完整性-complete
+            if (m_FileSaveStream.is_open()){
+                m_FileSaveStream.close();
+                // std::cout<<"ServerHandleFinalBag fd close!"<<std::endl;
+            }
+
+            //FileSavePath后期可能需要改正
+            bool complete = VerifyFileHash(m_FileSavePath, m_FileHash);
+            if (complete) {
+                //Hash没有问题
+                Json::Value Msg;
+                Msg["FileId"] = m_FileId;
+                Msg["Missing"] = 0;
+                std::string target = Msg.toStyledString();
+                //这里可以rename修改 文件在Server存储的文件路径
+                m_Session->Send(target.data(), target.size(), FileComplete);
+
+                m_Session->m_FileIds[m_FileId] = true;
+                FileManagement::GetInstance()->removeFile(m_Session->GetUuid(), m_FileId);
+                std::cout << "File upload complete! FileName: " << m_FileName << std::endl;
+                m_FileTimer.stop();
+                std::cout << "耗时: " << m_FileTimer.getMilliseconds() << " ms\n";
+                return true;
+            } else {
+                // hash验证失败--请求分块检验
+                Json::Value Msg;
+                Msg["FileId"] = m_FileId;
+                std::string target = Msg.toStyledString();
+
+                m_Session->Send(target.data(), target.size(), RequestVerify);
+                return false;
+            }
+        }
+
+    } catch (std::system_error &e) {
+        std::cout << e.what() << std::endl;
+    }
+    return false;
 }
 
-const std::vector<unsigned int> &FileToReceve::GetMissingSeqs()
+// bool FileToReceve::CheckMissingPacketsInAll()
+// {
+//     for (int i = 0; i < m_FileTotalPackets; ++i) {
+//         // 检查位标记
+//         if (!m_AllReceivedFlags[i]) {
+//             m_MissingSeqs.push_back(i);
+//         }
+//     }
+
+//     if (m_MissingSeqs.size() != 0)
+//         return true;
+//     else
+//         return false;
+// }
+
+const std::vector<uintmax_t> &FileToReceve::GetMissingSeqs()
 {
     return m_MissingSeqs;
 }
@@ -181,9 +262,10 @@ void FileToReceve::SlideWindow()
     }
 }
 
-void FileToReceve::AddHashCode(std::string clientcode, unsigned int seq)
+void FileToReceve::AddHashCode(std::string clientcode, uintmax_t seq)
 {
     std::unique_lock<std::mutex> lock(m_Mutex);
+    // std::cout<<"FileToReceve::AddHashCode start"<<std::endl;
 
     //两个容器的容量都是 m_FileTotalPackets / 10（可能+1） 且连续
     if (seq >= m_Verify.size()) {
@@ -202,15 +284,15 @@ void FileToReceve::AddHashCode(std::string clientcode, unsigned int seq)
 
 void FileToReceve::VerifyHash()
 {
-    std::cout<<"VerifyHash Thread Start!"<<std::endl;
+    // std::cout<<"VerifyHash Thread Start!"<<std::endl;
     std::vector<char> dataBuffer(Hash_Verify_Block);
-    unsigned int seq = 0;
-    unsigned int total = 0;
+    uintmax_t seq = 0;
+    uintmax_t total = 0;
+    uintmax_t seqtotal = m_FileTotalPackets / 10 +1;
     while (true) {
         try {
             std::unique_lock<std::mutex> lock(m_Mutex);
             m_CVVerify.wait(lock, [this] { return m_Verify[m_NextVerifying]; });
-
             m_VerifyStream.seekg(m_NextVerifying * Hash_Verify_Block);
 
             //一次检测10个包
@@ -225,7 +307,11 @@ void FileToReceve::VerifyHash()
 
             if (m_HashCodes[m_NextVerifying] != data) {
                 //有问题
+                std::cout<<"m_HashCodes["<<m_NextVerifying<<"] 检测有问题"<<std::endl;
                 m_DamagedBlock.push_back(m_NextVerifying);
+            }
+            else{
+                std::cout<<"m_HashCodes["<<m_NextVerifying<<"] 检测OK"<<std::endl;
             }
 
             m_NextVerifying++;
@@ -233,36 +319,37 @@ void FileToReceve::VerifyHash()
             dataBuffer.clear();
 
 
-            if (m_VerifyStream.eof()) {
+            /*if (m_VerifyStream.eof())*/
+            if (seq >= seqtotal){
+                std::cout<<"m_VerifyStream.eof()"<<std::endl;
                 //检查剩余所有包
-                if (total < m_FileSize) {
-                    std::string data = CalculateBlockHash(dataBuffer);
+                // if (total < m_FileSize) {
+                //     std::string data = CalculateBlockHash(dataBuffer);
 
-                    if (m_HashCodes[m_NextVerifying] == data) {
-                        //没问题
-                        m_HashCodes[m_NextVerifying] = "true";
-                    } else {
-                        //有问题
-                        m_DamagedBlock.push_back(m_NextVerifying);
-                    }
+                //     if (m_HashCodes[m_NextVerifying] == data) {
+                //         //没问题
+                //         m_HashCodes[m_NextVerifying] = "true";
+                //     } else {
+                //         //有问题
+                //         m_DamagedBlock.push_back(m_NextVerifying);
+                //     }
 
-                    m_NextVerifying++;
-                    seq++;
-                    dataBuffer.clear();
-                    // break;
-                }
-                std::cout << "File eof!" << std::endl;
-                unsigned int bags = m_FileTotalPackets / 10;
-                if (m_FileTotalPackets % 10)
-                    bags++;
+                //     m_NextVerifying++;
+                //     seq++;
+                //     dataBuffer.clear();
+                //     // break;
+                // }
+                // unsigned int bags = m_FileTotalPackets / 10;
+                // if (m_FileTotalPackets % 10)
+                //     bags++;
                 // 文件传输完成检测
-                if (m_NextVerifying >= bags) {
+
+                /*if (m_NextVerifying >= bags)*/
+                {
                     if(m_VerifyStream.is_open())
                         m_VerifyStream.close();
 
                     std::cout << "Hash Verified!" << std::endl;
-
-                    // 不检测缺包问题。就算如果有，在执行完这次Hash检测后，再来一次全文件检查
 
                     // std::unique_lock<std::mutex> lock(file->m_Mutex);
                     // file->m_VerifyFinish.wait(lock);
@@ -278,6 +365,7 @@ void FileToReceve::VerifyHash()
                     break;
                 }
             }
+
         } catch (std::system_error &e) {
             std::cout << e.what() << std::endl;
         }
@@ -350,13 +438,15 @@ void FileToReceve::ReWriteCausedByHash()
     }
 }
 
+
 //之后的函数是Client端发送文件的函数
 FileToSend::FileToSend(std::string filepath,
                        std::string filename,
-                       unsigned int filesize,
-                       unsigned int filetotalpackets,
+                       uintmax_t filesize,
+                       uintmax_t filetotalpackets,
                        std::string filehash,
-                       std::ifstream file)
+                       std::ifstream file,
+                       std::shared_ptr<CSession> session)
     : m_FilePath(filepath)
     , m_FileName(filename)
     , m_FileSize(filesize)
@@ -364,6 +454,7 @@ FileToSend::FileToSend(std::string filepath,
     , m_FileHash(filehash)
     , m_FileUploadStream(std::move(file))
     , m_FinishCheck(false)
+    , m_Session(session)
 {}
 
 FileToSend::~FileToSend()
@@ -404,3 +495,92 @@ void FileToSend::StopFinishTimer()
     }
     m_FinishCheck = true; // 标记已收到确认
 }
+
+void FileToSend::SendFile()
+{
+    std::vector<char> dataBuffer(FILE_DATA_LEN);
+    uintmax_t seq = 0;
+    uintmax_t total = 0;
+
+    while (m_FileUploadStream.read(reinterpret_cast<char *>(dataBuffer.data()),
+                                               FILE_DATA_LEN)) {
+        size_t bytes_read = m_FileUploadStream.gcount(); //读取的字符数
+        if (bytes_read == 0)
+            break;
+        // std::cout << "本次读取了 ：" << bytes_read << " 个字节。" << std::endl;
+        total += bytes_read;
+
+        // 构造 JSON 数据
+        Json::Value Msg;
+        Msg["FileId"] = m_FileId;
+        // Msg["Sequence"] = static_cast<Json::UInt>(seq);
+        Msg["Sequence"] = seq;
+        // Data为Base64 编码(利用openssl/BoostAsio库中函数自己实现编码).Json不能传送二进制文件，只能传文本
+        Msg["Data"] = base64_encode(dataBuffer.data(), bytes_read);
+
+        std::string target = Msg.toStyledString();
+
+        if (target.size() > std::numeric_limits<short>::max()) { //max为32767
+            throw std::runtime_error("Packet too large");
+        }
+
+        //这里主动插入一个缺包(第10个包)进行调试
+        if(seq <= 19){
+            seq++;
+            dataBuffer.clear();
+            // continue;
+        }else{
+            // 加入发送队列
+            m_Session->Send(target.data(), target.size(), FileDataBag);
+            std::cout << "Send sequence :" << seq << std::endl;
+            // std::cout << "Send length :" << target.size() << std::endl;
+            std::cout << "Send length :" << bytes_read << std::endl;
+
+            seq++;
+            dataBuffer.clear();
+        }
+    }
+
+    if ( m_FileUploadStream.eof()) {
+        //检查是否需要最后一个包
+        if (total <  m_FileSize) {
+            Json::Value Msg;
+            Msg["FileId"] = m_FileId;
+            Msg["Sequence"] = seq;
+
+            size_t last_bytes_read =  m_FileUploadStream.gcount();
+            if (last_bytes_read > 0) { // 确保读取了数据
+                Msg["Data"] = base64_encode(dataBuffer.data(), last_bytes_read);
+
+                std::string target = Msg.toStyledString();
+                if (target.size() > std::numeric_limits<short>::max()) {
+                    throw std::runtime_error("Packet too large");
+                }
+
+                std::cout << "Send sequence :" << seq << std::endl;
+                std::cout << "Send length :" << last_bytes_read << std::endl;
+                m_Session->Send(target.data(), target.size(), FileDataBag);
+
+                seq++;
+                dataBuffer.clear();
+            }
+            std::cout << "File eof!" << std::endl;
+        }
+    }
+    //关闭文件
+    if (m_FileUploadStream.is_open()) {
+        m_FileUploadStream.close();
+    }
+
+    //发送完后需要再接收一个Server确认文件完整的包。在获得hash确认完整后再在Client的File队列中删除该File
+    Json::Value Finish;
+    Finish["FileId"] = m_FileId;
+    Finish["Filefinish"] = 1;
+    std::string target1 = Finish.toStyledString();
+    std::cout << "Send finished." << std::endl;
+    m_Session->Send(target1.data(), target1.size(), FileFinish);
+    //如果时间内（20s）Server没有收到FileFinish,要重发这个包(boostasio中有定时器)
+    m_FinishTimer = std::make_shared<boost::asio::steady_timer>(m_Session->GetIoContext());
+    StartFinishTimer(m_Session);
+}
+

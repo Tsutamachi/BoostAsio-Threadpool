@@ -218,7 +218,9 @@ Page {
                             Controler.loginRequest(serverIpField.text,usernameField.text,passwordField.text,
                                                                          function (response) {
                                                                              if (response.error === 0) {
+                                                                                 console.log("登陆切换！")
                                                                                  lodermainwindows()
+                                                                                 console.log("登陆成功！")
                                                                              }
                                                                              else if(response.error===1009)
                                                                              {

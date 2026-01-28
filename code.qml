@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15  // 添加布局模块
-
+//找回密码
 Page {
     id: code
     title: "找回密码"

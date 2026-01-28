@@ -5,6 +5,7 @@ const const_module = require('./const')
 const { v4: uuidv4 } = require('uuid');
 const emailModule = require('./email');
 const redis_module=require('./redis');
+const config_module = require("./config");
 
 async function GetVarifyCode(call, callback) {
     console.log("email is ", call.request.email)
@@ -35,7 +36,7 @@ async function GetVarifyCode(call, callback) {
         let text_str =  '您的验证码为'+ uniqueId +'请三分钟内完成注册'
         //发送邮件
         let mailOptions = {
-            from: '17321814727@163.com',
+            from: config_module.email_user,
             to: call.request.email,
             subject: '验证码',
             text: text_str,

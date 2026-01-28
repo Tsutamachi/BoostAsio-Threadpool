@@ -1,4 +1,5 @@
 #pragma once
+//数据库服务调用
 #include "defines.h"
 #include "MysqlDao.h"
 #include "Singleton.h"

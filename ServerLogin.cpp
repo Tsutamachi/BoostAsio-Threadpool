@@ -28,7 +28,7 @@ map<std::string, std::string> ServerLogin::queryemailAndPassword()
     std::map<std::string, std::string> accountPasswordPairs;
     MYSQL_RES *res;
     MYSQL_ROW row;
-    const char *query = "SELECT email,password  FROM server";
+    const char *query = "SELECT email,password FROM server";
     if (mysql_query(conn, query)) {
         std::cerr << "mysql_query failed: " << mysql_error(conn) << std::endl;
         return accountPasswordPairs;

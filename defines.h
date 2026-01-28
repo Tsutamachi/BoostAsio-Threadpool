@@ -1,10 +1,11 @@
 #pragma once
 //mydefins.h
 //Server、Client的监听端口
-#define SERVERPORT 1220
+#define SERVERPORT 8080
 #define CLIENTPORT 721
 #define LOCALHOST_PORT 80
 #define DataPlace "/root/DataPlace/"
+#define StorageHardDisk "/" //装数据所在盘
 
 //包头结构：
 // MegId-Datalen
@@ -32,9 +33,10 @@
 //一个Client并行上传文件的上限数
 #define MAX_UPLOAD_NUM 5
 #define MAX_DOWNLOAD_NUM 5
+#define CheckLostPerBags 100//上传or下载时，每XX次检查一次是否缺包
 
 //Lock
-#define MAX_SENDQUE 100000 //发送队列的最大长度
+#define MAX_SENDQUE 500000 //发送队列的最大长度
 
 //MessageId     前1000一般留给系统级的消息，其余的留给业务级
 enum MSG_IDS {
@@ -68,7 +70,7 @@ enum MSG_IDS {
 };
 
 
-//const.h
+//const.h//QML中创建Client对象
 #include <functional>
 enum ErrorCodes {
     Success = 0,

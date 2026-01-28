@@ -18,9 +18,14 @@ Item {
         });
     }
     function lodermainwindows() {
-        removeregister()
-        stackView.push(Qt.resolvedUrl("Main.qml"))
+        // stackView.replace(null, Qt.resolvedUrl("Main.qml"))
+        console.log("LoderMainWidnows1")
+        stackView.pop()
+        console.log("LoderMainWidnows2")
+        stackView.push(Qt.resolvedUrl("Main.qml"))//Mark这里有问题
+        console.log("LoderMainWidnows3")
     }
+
     function lodercode() {
         removeregister()
         stackView.push(Qt.resolvedUrl("code.qml"))

@@ -1,4 +1,5 @@
 #pragma once
+//QML中Client用于调用文件上传
 #include "client.h"
 #include <QObject>
 #include <QObject>

@@ -1,6 +1,6 @@
 #pragma once
+//QML中创建Server对象
 #include "cserver.h"
-#include <QObject>
 #include <QObject>
 #include <QQmlEngine>
 #include <QtQml/qqmlregistration.h>

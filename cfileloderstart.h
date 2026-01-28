@@ -1,4 +1,5 @@
 #pragma once
+//QML中创建Client对象
 
 #include "cserver.h"
 #include <QObject>

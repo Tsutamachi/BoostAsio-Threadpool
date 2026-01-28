@@ -1,4 +1,5 @@
 #pragma once
+//用于满足：创建线程，在触发条件时再开始运行线程
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -40,6 +41,7 @@ public:
             thread_->join();
             thread_.reset();
         }
+        std::cout<<"DelayedThread Destructed!"<<std::endl;
     }
 
 private:

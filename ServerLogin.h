@@ -1,4 +1,5 @@
 #pragma once
+//QML中Server登陆时的信息检测（密码等，需要与数据库交互）
 #include <map>
 #include <mysql.h>
 #include <string>

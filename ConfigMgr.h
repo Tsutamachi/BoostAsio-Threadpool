@@ -1,4 +1,5 @@
 #pragma once
+//用于动态读取指定xml格式的config文件
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>

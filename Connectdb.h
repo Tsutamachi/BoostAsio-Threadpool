@@ -1,4 +1,5 @@
 #pragma once
+//数据库连接
 #include <mysql.h>
 #include <stdio.h>
 class Connectdb

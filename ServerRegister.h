@@ -1,4 +1,5 @@
 #pragma once
+//Serever注册
 #include <mysql.h>
 #include <string>
 #include "Connectdb.h"
